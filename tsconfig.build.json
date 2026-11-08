@@ -7,10 +7,10 @@
   "exclude": ["node_modules", "test", "dist", "**/*spec.ts"],
   "references": [
     {
-      "path": "../../libs/service-discovery-client/tsconfig.lib.json"
+      "path": "../lib-infrastructure/libs/rabbitmq/tsconfig.lib.json"
     },
     {
-      "path": "../../libs/health/tsconfig.lib.json"
+      "path": "../lib-infrastructure/libs/core/tsconfig.lib.json"
     }
   ]
 }

@@ -14,6 +14,11 @@ const gatewayRequire = createRequire(path.join(gatewayDir, 'package.json'));
 const { NestFactory } = require('@nestjs/core');
 const { SMTPServer } = require('smtp-server');
 const { Transport } = require('@nestjs/microservices');
+const {
+  startRabbitMQ,
+  RabbitMQService,
+} = require('@lib-infrastructure/rabbitmq');
+const amqp = require('amqplib');
 const { createConnection } = require('mongoose');
 const { getConnectionToken } = require('@nestjs/mongoose');
 const { buildGateway } = gatewayRequire('./dist/gateway/bootstrap.js');
@@ -157,6 +162,10 @@ try {
     HEALTH_PORT: String(healthPort),
     HEALTH_HOST: '127.0.0.1',
     SERVICE_NAME: 'w-identity',
+    RABBITMQ_URI:
+      process.env.IDENTITY_TEST_RABBITMQ_URI ??
+      'amqp://guest:guest@localhost:5672',
+    RABBITMQ_QUEUE: realm,
     SERVICE_INSTANCE_ID: realm,
     SERVICE_ADVERTISE_HOST: '127.0.0.1',
     REGISTRY_URL: `http://127.0.0.1:${registryPort}`,
@@ -172,13 +181,17 @@ try {
     KEYCLOAK_CLIENT_SECRET: 'dev-identity-secret',
   });
   const { AppModule } = require('../dist/app.module.js');
-  service = await NestFactory.createMicroservice(AppModule, {
-    transport: Transport.TCP,
-    options: { host: '127.0.0.1', port: tcpPort },
+  service = await NestFactory.create(AppModule, {
     logger: false,
     abortOnError: false,
   });
-  await service.listen();
+  service.connectMicroservice({
+    transport: Transport.TCP,
+    options: { host: '127.0.0.1', port: tcpPort },
+  });
+  await service.init();
+  await startRabbitMQ(service);
+  await service.startAllMicroservices();
   gateway = await buildGateway({
     project: 'identity',
     auth: { issuer: `${keycloak}/realms/${realm}`, audience: 'w-identity' },
@@ -230,6 +243,33 @@ try {
   await prepareLogin(id);
   const userToken = await signIn('alice', 'Test-Only-Password!42');
   const me = await request('GET', '/me', userToken);
+  const rabbit = service.get(RabbitMQService);
+  const claims = JSON.parse(
+    Buffer.from(userToken.split('.')[1], 'base64url').toString(),
+  );
+  const rmqMe = await rabbit.send(realm, 'identity.me.get', {
+    params: {},
+    query: {},
+    user: { ...claims, roles: ['user'] },
+    meta: {
+      requestId: randomUUID(),
+      operationId: 'identity.me.get',
+      project: 'identity',
+    },
+  });
+  assert.equal(
+    rmqMe.userId,
+    id,
+    'Existing identity handler also responds over RMQ',
+  );
+  await assert.rejects(
+    rabbit.send(realm, 'identity.me.get', {
+      params: {},
+      query: {},
+      meta: { requestId: randomUUID() },
+    }),
+    (error) => error.code === 'UNAUTHENTICATED',
+  );
   assert.equal(me.userId, id);
   assert.equal(me.profile.userId, id);
   assert.ok(!('_id' in me.profile));
@@ -392,6 +432,22 @@ try {
     await cleanup(() => gateway.transport.close());
   }
   if (service) await cleanup(() => service.close());
+  if (process.env.RABBITMQ_QUEUE === realm)
+    await cleanup(async () => {
+      const broker = await amqp.connect(process.env.RABBITMQ_URI);
+      try {
+        const channel = await broker.createChannel();
+        try {
+          await channel.deleteQueue(realm);
+          await channel.deleteQueue(`${realm}.dlq`);
+          await channel.deleteExchange(`${realm}.dlx`);
+        } finally {
+          await channel.close();
+        }
+      } finally {
+        await broker.close();
+      }
+    });
   if (registry) await cleanup(() => registry.close());
   if (smtp) await cleanup(() => new Promise((resolve) => smtp.close(resolve)));
   if (masterToken)

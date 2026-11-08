@@ -22,10 +22,10 @@
   },
   "references": [
     {
-      "path": "../../libs/service-discovery-client"
+      "path": "../lib-infrastructure/libs/rabbitmq"
     },
     {
-      "path": "../../libs/health"
+      "path": "../lib-infrastructure/libs/core"
     }
   ]
 }

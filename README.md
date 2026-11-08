@@ -1,10 +1,10 @@
 # w-identity
 
-NestJS TCP service theo Clean Architecture. Kế hoạch và checklist: [documents/PLAN.md](documents/PLAN.md).
+NestJS service theo Clean Architecture, nhận request qua TCP và RabbitMQ. Kế hoạch và checklist: [documents/PLAN.md](documents/PLAN.md).
 
 ## Môi trường dev
 
-1. Từ workspace root, chạy `docker compose up -d mongodb keycloak`.
+1. Từ workspace root, chạy `docker compose up -d mongodb keycloak rabbitmq`.
 2. Import `fixtures/pm-realm.json` bằng Keycloak Admin Console (Create realm → Browse). Fixture chỉ dùng dev; import lần đầu, không ghi đè realm đang dùng. Realm `pm` có access token 5 phút, role `admin`/`user`, client PKCE `pm-web` và service account `identity-service`.
 3. Trong realm pm, tạo admin đầu tiên bằng Admin Console, đặt mật khẩu tạm thời và gán realm role `admin`. Giữ tài khoản quản trị Keycloak riêng để khôi phục khi mất admin ứng dụng.
 4. Trong Realm settings → Email, cấu hình SMTP rồi thử gửi email. Không lưu SMTP password vào Git.
@@ -17,13 +17,21 @@ Cổng TCP mặc định chỉ bind `127.0.0.1`; khi triển khai container, đ�
 
 ## Kiểm tra
 
+RabbitMQ được cấu hình bằng `RABBITMQ_URI` và `RABBITMQ_QUEUE` theo `.env.example`. File `.env` đã tồn tại cũng cần thêm hai biến này. Startup thất bại nếu broker không sẵn sàng trong 10 giây. Các replica dùng chung queue `w-identity`.
+
+Service chạy TCP và RMQ trong cùng application context, không mở HTTP listener. Các `@MessagePattern('identity.…')` hiện có nhận cùng payload và trả cùng lỗi trên hai transport. Có thể thêm `@EventPattern` khi có nghiệp vụ nhận event cụ thể; lần tích hợp này không thêm event nghiệp vụ.
+
+Readiness kiểm tra cả MongoDB và consumer RabbitMQ; liveness giữ kiểm tra nội tại. Queue lỗi là `w-identity.dlq`. Chỉ cho service tin cậy truy cập RabbitMQ, tương tự TCP; payload actor vẫn theo contract hiện có.
+
+Xem [README của lib](../lib-infrastructure/libs/rabbitmq/README.md) về API gửi event/RPC, ack, timeout và DLQ.
+
 `npm exec nx run w-identity:test -- --runInBand --skipSync`
 
 `npm exec nx run w-identity:build -- --skipSync`
 
 ## Dependency và phiên bản Node
 
-Dùng Node 24 (`nvm use 24`); test Jest cần VM modules, đã cấu hình trong script. Cài dependency ở **workspace root** bằng `npm install --legacy-peer-deps`. Root `package-lock.json` là lock chuẩn; app không giữ lock riêng để tránh lệch liên kết `@org/health` và `@org/service-discovery-client`.
+Dùng Node 24 (`nvm use 24`); test Jest cần VM modules, đã cấu hình trong script. Cài dependency ở **workspace root** bằng `npm install --legacy-peer-deps`. Root `package-lock.json` là lock chuẩn; app không giữ lock riêng để tránh lệch liên kết `@lib-infrastructure/core`.
 
 ## Chạy đủ luồng
 
@@ -52,7 +60,7 @@ Các bài test tạo realm/database có tiền tố riêng, tự dọn sau khi c
 
 Chuẩn bị:
 
-1. Chạy MongoDB và Keycloak bằng Docker Compose.
+1. Chạy MongoDB, Keycloak và RabbitMQ bằng Docker Compose.
 2. Build gateway trong repo của nó: `npm exec nx run api-gateway:build`.
 3. Build registry bằng script hiện có: `npm --prefix apps/service-discovery run build` từ root. Registry là repo riêng và chưa có Nx target trong workspace root.
 4. Từ root chạy `npm exec nx run w-identity:test:e2e -- --skipSync`. Target tự build w-identity và các thư viện của nó trước khi test. Có thể chỉ kiểm tra MongoDB bằng `npm exec nx run w-identity:test:mongo -- --skipSync`.
@@ -60,6 +68,8 @@ Chuẩn bị:
 Biến môi trường tùy chỉnh cho test: `IDENTITY_TEST_KEYCLOAK_URL`, `IDENTITY_TEST_ADMIN`, `IDENTITY_TEST_ADMIN_PASSWORD`, `IDENTITY_TEST_MONGO_URI`. SMTP host mặc định `host.docker.internal` để Keycloak trong Docker kết nối SMTP test trên máy host; nếu Keycloak chạy trực tiếp trên host, đặt `IDENTITY_TEST_SMTP_HOST=127.0.0.1`.
 
 Health tại `http://localhost:9002/health/live` và `/health/ready`. MongoDB mất kết nối làm readiness trả 503; liveness chỉ kiểm tra nội tại process.
+
+E2E dùng queue RabbitMQ có UUID riêng. Đặt `IDENTITY_TEST_RABBITMQ_URI` để đổi broker test (mặc định `amqp://guest:guest@localhost:5672`).
 
 ## Ranh giới và xử lý lỗi từng phần
 
