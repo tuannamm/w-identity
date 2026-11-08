@@ -35,7 +35,12 @@ export function accountBody(
   value: unknown,
   create?: false,
 ): Parameters<UpdateUser['execute']>[0]['patch'];
-export function accountBody(value: unknown, create = false): Parameters<CreateUser['execute']>[0] | Parameters<UpdateUser['execute']>[0]['patch'] {
+export function accountBody(
+  value: unknown,
+  create = false,
+):
+  | Parameters<CreateUser['execute']>[0]
+  | Parameters<UpdateUser['execute']>[0]['patch'] {
   const record = fields(
     value,
     create

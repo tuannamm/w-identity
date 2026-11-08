@@ -64,36 +64,36 @@ Không dùng CQRS framework, command bus, event bus hoặc generic base reposito
 
 ### Kiểm thử kiến trúc
 
-- [ ] Kiểm thử Domain và Application bằng fake ports: quyền, role, quyền sở hữu hồ sơ, trùng dữ liệu, tài khoản không tồn tại và lỗi từng phần; không cần khởi động NestJS hoặc database.
-- [ ] Kiểm thử adapter với Keycloak/MongoDB: token cache, ánh xạ lỗi, upsert đồng thời và unique index.
-- [ ] Kiểm thử presentation: DTO, actor, message pattern, response và RPC error.
-- [ ] Bổ sung kiểm tra import: Domain không phụ thuộc lớp ngoài; Application chỉ phụ thuộc Domain và không import framework.
-- [ ] Kiểm thử E2E từ gateway qua TCP đến Keycloak/MongoDB, gồm luồng admin, `/me`, token sai và thiếu quyền.
+- [x] Kiểm thử Domain và Application bằng fake ports: quyền, role, quyền sở hữu hồ sơ, trùng dữ liệu, tài khoản không tồn tại và lỗi từng phần; không cần khởi động NestJS hoặc database.
+- [x] Kiểm thử adapter với Keycloak/MongoDB: token cache, ánh xạ lỗi, upsert đồng thời và unique index.
+- [x] Kiểm thử presentation: DTO, actor, message pattern, response và RPC error.
+- [x] Bổ sung kiểm tra import: Domain không phụ thuộc lớp ngoài; Application chỉ phụ thuộc Domain và không import framework.
+- [x] Kiểm thử E2E từ gateway qua TCP đến Keycloak/MongoDB, gồm luồng admin, `/me`, token sai và thiếu quyền.
 
 ## Bước 1 — Chuẩn bị môi trường và cấu hình
 
-- [ ] Cấu hình realm, role `admin` và `user`, client cho ứng dụng, audience và service account riêng cho w-identity với quyền tối thiểu cần thiết. Tạo fixture dev có thể chạy lại và hướng dẫn bootstrap admin đầu tiên.
-- [ ] Cấu hình Keycloak URL, realm, client credentials, issuer, audience, MongoDB URI và cổng TCP bằng biến môi trường; kiểm tra cấu hình bắt buộc khi khởi động.
-- [ ] Bổ sung `.env.example`, hướng dẫn chạy các dịch vụ trong Docker Compose và cấu hình SMTP để gửi email đặt lại mật khẩu.
-- [ ] Giữ health và service discovery hiện có; cấu hình graceful shutdown.
+- [x] Cung cấp fixture realm, role `admin` và `user`, client cho ứng dụng, audience và service account riêng cho w-identity với quyền tối thiểu cần thiết. Tạo fixture dev có thể chạy lại và hướng dẫn bootstrap admin đầu tiên.
+- [x] Cấu hình Keycloak URL, realm, client credentials, issuer, audience, MongoDB URI và cổng TCP bằng biến môi trường; kiểm tra cấu hình bắt buộc khi khởi động.
+- [x] Bổ sung `.env.example`, hướng dẫn chạy các dịch vụ trong Docker Compose và hướng dẫn cấu hình SMTP để gửi email đặt lại mật khẩu.
+- [x] Giữ health và service discovery hiện có; cấu hình graceful shutdown.
 
 **Hoàn thành khi:** môi trường dev khởi động được, cấu hình thiếu hoặc sai được báo rõ và không ghi secret vào log.
 
 ## Bước 2 — Xác thực tại API Gateway
 
-- [ ] Bổ sung metadata security vào route từ OpenAPI. Route mặc định yêu cầu bearer token; `security: []` cho phép truy cập công khai; từ chối security scheme chưa hỗ trợ khi nạp spec.
-- [ ] Xác minh JWT bằng JWKS của Keycloak, kiểm tra thuật toán cho phép, chữ ký, issuer, audience và thời hạn; hỗ trợ xoay khóa.
-- [ ] Dựng `GatewayRequest.user` từ claim đã xác minh: `sub`, `iss` và `roles` từ `realm_access.roles`. Không nhận danh tính hoặc role do client tự khai báo trong body/header.
-- [ ] Trả `401` khi token thiếu hoặc không hợp lệ; trả `403` khi thiếu quyền. Chỉ cho phép truy cập cổng TCP của w-identity từ mạng nội bộ tin cậy.
+- [x] Bổ sung metadata security vào route từ OpenAPI. Route mặc định yêu cầu bearer token; `security: []` cho phép truy cập công khai; từ chối security scheme chưa hỗ trợ khi nạp spec.
+- [x] Xác minh JWT bằng JWKS của Keycloak, kiểm tra thuật toán cho phép, chữ ký, issuer, audience và thời hạn; hỗ trợ xoay khóa.
+- [x] Dựng `GatewayRequest.user` từ claim đã xác minh: `sub`, `iss` và `roles` từ `realm_access.roles`. Không nhận danh tính hoặc role do client tự khai báo trong body/header.
+- [x] Trả `401` khi token thiếu hoặc không hợp lệ; trả `403` khi thiếu quyền. Chỉ cho phép truy cập cổng TCP của w-identity từ mạng nội bộ tin cậy.
 
 **Hoàn thành khi:** request hợp lệ có danh tính được truyền xuống service; token sai và request giả danh bị từ chối.
 
 ## Bước 3 — Chuyển w-identity sang TCP và khai báo hợp đồng
 
-- [ ] Chuyển bootstrap sang NestJS TCP microservice, bật shutdown hooks và dùng cùng cổng với service discovery.
-- [ ] Giữ cấu trúc `GatewayRequest` và `GatewayRpcError` theo hợp đồng gateway. Dùng namespace `identity.*` để tránh trùng pattern `user.*` của echo-service.
-- [ ] Tạo OpenAPI spec riêng cho identity; mỗi `operationId` khớp chính xác với một message pattern. Gateway chuyển lỗi RPC thành `problem+json`.
-- [ ] Dùng DTO allowlist, từ chối trường ngoài hợp đồng; kiểm tra quyền tại từng handler. Các thao tác `/me` luôn lấy ID từ `user.sub`.
+- [x] Chuyển bootstrap sang NestJS TCP microservice, bật shutdown hooks và dùng cùng cổng với service discovery.
+- [x] Giữ cấu trúc `GatewayRequest` và `GatewayRpcError` theo hợp đồng gateway. Dùng namespace `identity.*` để tránh trùng pattern `user.*` của echo-service.
+- [x] Tạo OpenAPI spec riêng cho identity; mỗi `operationId` khớp chính xác với một message pattern. Gateway chuyển lỗi RPC thành `problem+json`.
+- [x] Dùng DTO allowlist, từ chối trường ngoài hợp đồng; kiểm tra quyền tại từng handler. Các thao tác `/me` luôn lấy ID từ `user.sub`.
 
 | HTTP qua gateway | Message pattern | Quyền |
 |---|---|---|
@@ -113,36 +113,36 @@ Không dùng CQRS framework, command bus, event bus hoặc generic base reposito
 
 ## Bước 4 — Tích hợp Keycloak
 
-- [ ] Tách Keycloak adapter và nghiệp vụ người dùng. Gọi Admin REST API bằng service account, không truy cập trực tiếp database Keycloak.
-- [ ] Lấy token bằng client credentials, cache theo hạn dùng và refresh một lần khi gặp `401`; đặt timeout cho request. Không tự động retry tạo tài khoản hoặc gửi email khi kết quả chưa xác định.
-- [ ] Quản lý `id`, username, email, họ tên, `enabled`, `emailVerified` và realm roles tại Keycloak. Chỉ cho phép gán/gỡ role ứng dụng `admin`, `user`.
-- [ ] Tạo tài khoản bằng username, email và họ tên; mặc định bật và có role `user`, không nhận mật khẩu. Nếu gán role mặc định thất bại, trả lỗi kèm ID tài khoản đã tạo để admin khắc phục, không tự xóa tài khoản.
-- [ ] Cho admin sửa email và họ tên; username bất biến trong v1. Khi đổi email, đặt `emailVerified=false`.
-- [ ] Liệt kê tài khoản từ Keycloak với `search`, `enabled`, `offset`, `limit`; mặc định `limit=20`, tối đa `100`. Không lọc theo trường MongoDB.
-- [ ] Khi khóa tài khoản, tắt tài khoản và yêu cầu kết thúc session. Cấu hình access token mặc định 5 phút; token đã phát hành có thể còn hiệu lực đến khi hết hạn.
-- [ ] Gửi email đặt lại mật khẩu qua `execute-actions-email` với `UPDATE_PASSWORD`; SMTP phải được cấu hình.
+- [x] Tách Keycloak adapter và nghiệp vụ người dùng. Gọi Admin REST API bằng service account, không truy cập trực tiếp database Keycloak.
+- [x] Lấy token bằng client credentials, cache theo hạn dùng và refresh một lần khi gặp `401`; đặt timeout cho request. Không tự động retry tạo tài khoản hoặc gửi email khi kết quả chưa xác định.
+- [x] Quản lý `id`, username, email, họ tên, `enabled`, `emailVerified` và realm roles tại Keycloak. Chỉ cho phép gán/gỡ role ứng dụng `admin`, `user`.
+- [x] Tạo tài khoản bằng username, email và họ tên; mặc định bật và có role `user`, không nhận mật khẩu. Nếu gán role mặc định thất bại, trả lỗi kèm ID tài khoản đã tạo để admin khắc phục, không tự xóa tài khoản.
+- [x] Cho admin sửa email và họ tên; username bất biến trong v1. Khi đổi email, đặt `emailVerified=false`.
+- [x] Liệt kê tài khoản từ Keycloak với `search`, `enabled`, `offset`, `limit`; mặc định `limit=20`, tối đa `100`. Không lọc theo trường MongoDB.
+- [x] Khi khóa tài khoản, tắt tài khoản và yêu cầu kết thúc session. Cấu hình access token mặc định 5 phút; token đã phát hành có thể còn hiệu lực đến khi hết hạn.
+- [x] Gửi email đặt lại mật khẩu qua `execute-actions-email` với `UPDATE_PASSWORD`; SMTP phải được cấu hình.
 
 **Hoàn thành khi:** admin thực hiện được các thao tác tài khoản và role qua gateway; lỗi trùng dữ liệu, Keycloak và SMTP được trả rõ ràng.
 
 ## Bước 5 — Hồ sơ MongoDB
 
-- [ ] Dùng `@nestjs/mongoose` lưu hồ sơ gồm `keycloakUserId`, `avatarUrl`, `phoneNumber`, `timezone`, `locale`, `createdAt`, `updatedAt`; tạo unique index cho `keycloakUserId`.
-- [ ] Dùng ID Keycloak làm ID công khai; không xuất MongoDB `_id`, lưu mật khẩu, token hoặc bản sao role trong hồ sơ.
-- [ ] Upsert hồ sơ khi đọc hoặc cập nhật hồ sơ của tài khoản Keycloak hợp lệ, bao gồm tài khoản đã tồn tại trước đó. Tạo tài khoản hoàn tất ở Keycloak; hồ sơ MongoDB được tạo lười.
-- [ ] `GET /me` và chi tiết người dùng kết hợp dữ liệu Keycloak với hồ sơ MongoDB. `PATCH /me` chỉ cập nhật các trường hồ sơ MongoDB; thông tin tài khoản thuộc luồng admin.
-- [ ] Tách thao tác ghi: request hồ sơ chỉ ghi MongoDB, request tài khoản chỉ ghi Keycloak.
+- [x] Dùng `@nestjs/mongoose` lưu hồ sơ gồm `keycloakUserId`, `avatarUrl`, `phoneNumber`, `timezone`, `locale`, `createdAt`, `updatedAt`; tạo unique index cho `keycloakUserId`.
+- [x] Dùng ID Keycloak làm ID công khai; không xuất MongoDB `_id`, lưu mật khẩu, token hoặc bản sao role trong hồ sơ.
+- [x] Upsert hồ sơ khi đọc hoặc cập nhật hồ sơ của tài khoản Keycloak hợp lệ, bao gồm tài khoản đã tồn tại trước đó. Tạo tài khoản hoàn tất ở Keycloak; hồ sơ MongoDB được tạo lười.
+- [x] `GET /me` và chi tiết người dùng kết hợp dữ liệu Keycloak với hồ sơ MongoDB. `PATCH /me` chỉ cập nhật các trường hồ sơ MongoDB; thông tin tài khoản thuộc luồng admin.
+- [x] Tách thao tác ghi: request hồ sơ chỉ ghi MongoDB, request tài khoản chỉ ghi Keycloak.
 
 **Hoàn thành khi:** người dùng xem và sửa hồ sơ của mình; upsert đồng thời không tạo bản ghi trùng và lỗi MongoDB không làm tạo lại tài khoản Keycloak.
 
 ## Bước 6 — Kiểm thử, vận hành và bàn giao
 
-- [ ] Kiểm thử xác thực: token hợp lệ, sai chữ ký/issuer/audience, hết hạn, xoay JWKS, route công khai và request giả danh.
-- [ ] Kiểm thử phân quyền: user không gọi API admin, không sửa hồ sơ người khác hoặc tự cấp role; thiếu danh tính bị từ chối.
-- [ ] Kiểm thử nghiệp vụ: tạo và tìm tài khoản, trùng username/email, cập nhật email, bật/tắt, role ngoài allowlist, validation và email đặt lại mật khẩu.
-- [ ] Kiểm thử lỗi Keycloak timeout, service account thiếu quyền, SMTP lỗi, gán role mặc định thất bại, kết thúc session thất bại và MongoDB không khả dụng.
-- [ ] Kiểm thử E2E HTTP → gateway → discovery → TCP → Keycloak/MongoDB bằng realm và database riêng; xác minh `/me`, phân trang và cấu trúc lỗi.
-- [ ] Log request ID, người thực hiện, thao tác, đối tượng và kết quả; không ghi token, secret hoặc toàn bộ hồ sơ.
-- [ ] Chạy build, typecheck, lint và test qua Nx cho các project thay đổi; cập nhật hướng dẫn chạy và request mẫu.
+- [x] Kiểm thử xác thực: token hợp lệ, sai chữ ký/issuer/audience, hết hạn, xoay JWKS, route công khai và request giả danh.
+- [x] Kiểm thử phân quyền: user không gọi API admin, không sửa hồ sơ người khác hoặc tự cấp role; thiếu danh tính bị từ chối.
+- [x] Kiểm thử nghiệp vụ: tạo và tìm tài khoản, trùng username/email, cập nhật email, bật/tắt, role ngoài allowlist, validation và email đặt lại mật khẩu.
+- [x] Kiểm thử lỗi Keycloak timeout, service account thiếu quyền, SMTP lỗi, gán role mặc định thất bại, kết thúc session thất bại và MongoDB không khả dụng.
+- [x] Kiểm thử E2E HTTP → gateway → discovery → TCP → Keycloak/MongoDB bằng realm và database riêng; xác minh `/me`, phân trang và cấu trúc lỗi.
+- [x] Log request ID, người thực hiện, thao tác, đối tượng và kết quả; không ghi token, secret hoặc toàn bộ hồ sơ.
+- [x] Chạy build, typecheck, lint và test qua Nx cho các project thay đổi; cập nhật hướng dẫn chạy và request mẫu.
 
 **Hoàn thành khi:** các API trong bảng chạy qua gateway với Keycloak và MongoDB thật, các kiểm tra quyền đạt yêu cầu và tài liệu đủ để dựng môi trường mới.
 
@@ -164,3 +164,23 @@ Không dùng CQRS framework, command bus, event bus hoặc generic base reposito
 - Bước 5: MongoDB repository đã qua kiểm thử database thật: unique index, 20 upsert đồng thời không trùng, lưu/đọc hồ sơ, không lộ `_id` và lỗi storage được chuẩn hóa.
 
 - Bước 3 / Clean Architecture bước 4–6: TCP controller, DTO/filter, composition root và readiness MongoDB đã tích hợp; toàn luồng JWT thật → gateway → registry thật → TCP → Keycloak/MongoDB đạt.
+
+- Bước 6: 22 unit/boundary/architecture tests của w-identity đạt; gateway có 136 unit/integration tests và 17 E2E tests đạt. Test E2E riêng của identity đã xác minh Keycloak/MongoDB thật, service discovery thật, email reset gửi vào SMTP test cục bộ, session bị kết thúc khi khóa và readiness trả 503 khi storage đóng.
+- Môi trường kiểm chứng: Node 24.22.2, Keycloak image 26.0 (runtime 26.0.8), MongoDB 7. Secret và realm dev của người dùng không bị thay đổi; test dùng realm/database tạm và tự dọn.
+- Cài đặt ngoài test vẫn cần import fixture dev, tạo admin đầu tiên và nhập cấu hình SMTP thực tế theo README. Các checkbox đánh dấu phần triển khai/hướng dẫn đã bàn giao, không khẳng định đã cấu hình môi trường production.
+
+### Các commit theo hạng mục
+
+| Repository | Commit | Hạng mục |
+|---|---|---|
+| w-identity | `93e393d` | Cấu hình fail-fast và realm fixture |
+| api-gateway | `946c9be` | JWT/JWKS và security trong OpenAPI |
+| w-identity | `371bf92` | Domain, ports, Actor/policy và use cases |
+| w-identity | `ea7cfe4` | Keycloak adapter và token lifecycle |
+| w-identity | `242c608` | Hồ sơ MongoDB và kiểm thử upsert đồng thời |
+| api-gateway | `a7b80c9` | Routing identity và chuẩn hóa lỗi URL |
+| w-identity | `f99ee42` | Tài liệu học Clean Architecture |
+| w-identity | `b698ac2` | TCP, composition root, validation/filter và E2E |
+| workspace | `d567d9e`, `5495e4a` | Dependency lock và giữ project trong Nx graph |
+
+Các commit nghiệm thu cuối chứa schema API đầy đủ, hướng dẫn vận hành và kết quả kiểm tra; xem `git log` của từng repository.

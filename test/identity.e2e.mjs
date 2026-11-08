@@ -302,18 +302,51 @@ try {
     disabledCommands: ['AUTH', 'STARTTLS'],
     onData(stream, session, callback) {
       let raw = '';
-      stream.on('data', chunk => { raw += chunk.toString(); });
-      stream.on('end', () => { messages.push({ raw, recipients: session.envelope.rcptTo.map(r => r.address) }); callback(); });
+      stream.on('data', (chunk) => {
+        raw += chunk.toString();
+      });
+      stream.on('end', () => {
+        messages.push({
+          raw,
+          recipients: session.envelope.rcptTo.map((r) => r.address),
+        });
+        callback();
+      });
       stream.on('error', callback);
     },
   });
   const smtpPort = await freePort();
-  await new Promise((resolve, reject) => { smtp.on('error', reject); smtp.listen(smtpPort, '0.0.0.0', resolve); });
-  await master(`realms/${realm}`, 'PUT', { smtpServer: { host: process.env.IDENTITY_TEST_SMTP_HOST ?? 'host.docker.internal', port: String(smtpPort), from: 'identity-tests@example.invalid', ssl: 'false', starttls: 'false', auth: 'false' } });
-  await request('POST', `/users/${id}/password-reset-email`, adminToken, undefined, 204);
-  assert.equal(messages.length, 1, 'Local SMTP received one password action email');
+  await new Promise((resolve, reject) => {
+    smtp.on('error', reject);
+    smtp.listen(smtpPort, '0.0.0.0', resolve);
+  });
+  await master(`realms/${realm}`, 'PUT', {
+    smtpServer: {
+      host: process.env.IDENTITY_TEST_SMTP_HOST ?? 'host.docker.internal',
+      port: String(smtpPort),
+      from: 'identity-tests@example.invalid',
+      ssl: 'false',
+      starttls: 'false',
+      auth: 'false',
+    },
+  });
+  await request(
+    'POST',
+    `/users/${id}/password-reset-email`,
+    adminToken,
+    undefined,
+    204,
+  );
+  assert.equal(
+    messages.length,
+    1,
+    'Local SMTP received one password action email',
+  );
   assert.deepEqual(messages[0].recipients, ['alice-new@example.invalid']);
-  assert.ok(messages[0].raw.includes('action-token'), 'Email contains a Keycloak action link');
+  assert.ok(
+    messages[0].raw.includes('action-token'),
+    'Email contains a Keycloak action link',
+  );
   await request(
     'PATCH',
     `/users/${id}/status`,
@@ -360,7 +393,7 @@ try {
   }
   if (service) await cleanup(() => service.close());
   if (registry) await cleanup(() => registry.close());
-  if (smtp) await cleanup(() => new Promise(resolve => smtp.close(resolve)));
+  if (smtp) await cleanup(() => new Promise((resolve) => smtp.close(resolve)));
   if (masterToken)
     await cleanup(async () => {
       const result = await fetch(`${keycloak}/admin/realms/${realm}`, {

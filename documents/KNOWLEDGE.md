@@ -1,6 +1,6 @@
 # Clean Architecture — học, ôn tập và phỏng vấn
 
-Ví dụ xuyên suốt là **thiết kế dự kiến của w-identity**, chưa phải tính năng đã triển khai. Xem [PLAN.md](./PLAN.md).
+Ví dụ xuyên suốt là thiết kế và code **w-identity** đã có kiểm thử; đây chưa phải bằng chứng vận hành production. Xem [PLAN.md](./PLAN.md).
 
 Học theo thứ tự 0–13. Mỗi ngày đọc hai chủ đề, tự nói câu trả lời trong 60–90 giây rồi luyện thẻ câu hỏi. Cuối tuần làm bài thực hành và một buổi phỏng vấn giả lập 20 phút. Trạng thái 📖 là tài liệu lý thuyết, không khẳng định bạn đã học thuộc.
 
@@ -157,7 +157,7 @@ Ranh giới thêm interface, mapping và chi phí điều hướng. Hữu ích k
 
 Bài tập: thiết kế UpdateMyProfile với input, Actor, hai ports, lỗi và test. Sau đó giả lập Keycloak timeout, MongoDB down và request của user khác.
 
-**Ví dụ w-identity:** Mẫu nói: Em tách use case khỏi Keycloak/Mongoose bằng ports, lắp bằng Nest providers. Đánh đổi là thêm mapping; lợi ích là test nghiệp vụ độc lập. Đây là thiết kế dự kiến, chưa phải kinh nghiệm triển khai đã hoàn tất.
+**Ví dụ w-identity:** Mẫu nói: Em tách use case khỏi Keycloak/Mongoose bằng ports, lắp bằng Nest providers. Đánh đổi là thêm mapping; lợi ích là test nghiệp vụ độc lập. Chỉ mô tả phần bạn hiểu và đã tự kiểm chứng; không xem kiểm thử local là kinh nghiệm vận hành production.
 
 **Bẫy phỏng vấn:** Kể thiết kế dự kiến như thành tích đã làm; chỉ kể tên thư mục mà không mô tả dependency và trade-off.
 

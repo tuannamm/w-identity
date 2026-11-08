@@ -2,9 +2,9 @@
 
 Bảo vệ nghiệp vụ khỏi chi tiết công nghệ.
 
-Ví dụ: thiết kế dự kiến w-identity.
+Ví dụ: thiết kế và code w-identity.
 
-Note: Nêu rõ đây là thiết kế, chưa phải thành tích triển khai.
+Note: Nêu rõ phần đã tự làm hoặc kiểm chứng; không nhận kinh nghiệm production từ ví dụ local.
 
 ---
 

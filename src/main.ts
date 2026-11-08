@@ -7,7 +7,15 @@ import { loadIdentityConfig } from './bootstrap/config/identity.config';
 async function bootstrap() {
   const file = join(__dirname, '..', '.env');
   if (existsSync(file)) process.loadEnvFile(file);
-  const config = loadIdentityConfig();
+  let config: ReturnType<typeof loadIdentityConfig>;
+  try {
+    config = loadIdentityConfig();
+  } catch (error) {
+    // Configuration errors contain variable names only, never values or secrets.
+    console.error(`Invalid identity configuration: ${(error as Error).message}`);
+    process.exitCode = 1;
+    return;
+  }
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
     AppModule,
     {
