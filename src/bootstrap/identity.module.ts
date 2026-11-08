@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule, getModelToken } from '@nestjs/mongoose';
+import { DatabaseModule } from '@lib-infrastructure/database';
 import type { Model } from 'mongoose';
 import {
   loadIdentityConfig,
@@ -28,16 +29,7 @@ import {
 } from '../presentation/tcp/identity.controller';
 @Module({
   imports: [
-    MongooseModule.forRootAsync({
-      useFactory: () => ({
-        uri: loadIdentityConfig().mongoUri,
-        serverSelectionTimeoutMS: 3000,
-        connectTimeoutMS: 3000,
-        socketTimeoutMS: 3000,
-        retryAttempts: 0,
-        autoIndex: true,
-      }),
-    }),
+    DatabaseModule,
     MongooseModule.forFeature([{ name: PROFILE_MODEL, schema: ProfileSchema }]),
   ],
   exports: [MongooseModule],

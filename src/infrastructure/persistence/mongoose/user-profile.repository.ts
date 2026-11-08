@@ -20,6 +20,7 @@ export const ProfileSchema = new Schema<ProfileRecord>(
     locale: String,
   },
   {
+    autoIndex: true,
     timestamps: true,
     versionKey: false,
     bufferCommands: false,
