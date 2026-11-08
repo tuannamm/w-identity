@@ -158,3 +158,5 @@ Không dùng CQRS framework, command bus, event bus hoặc generic base reposito
 
 - Bước 2: gateway xác minh JWT/JWKS, secure-by-default và ánh xạ danh tính đã xác minh. Gateway build đạt; 136 tests đạt trên Node 24 với VM modules.
 - Clean Architecture bước 1–3: Domain, ports, Actor/policy và 11 use cases đã có; 7 test nghiệp vụ đạt với fake ports.
+
+- Bước 4: adapter Keycloak, token cache/refresh, mapping dữ liệu và lỗi đã hoàn thành; kiểm thử không retry tác dụng phụ, lỗi 403/404/409/500 và dùng chung token đồng thời đạt. Kiểm thử Keycloak thật nằm ở bước nghiệm thu.
