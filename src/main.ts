@@ -1,30 +1,19 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { Transport, type MicroserviceOptions } from '@nestjs/microservices';
 import { startRabbitMQ } from '@lib-infrastructure/rabbitmq';
 import { AppModule } from './app.module';
-import { loadIdentityConfig } from './bootstrap/config/identity.config';
 async function bootstrap() {
-  const file = join(__dirname, '..', '.env');
-  if (existsSync(file)) process.loadEnvFile(file);
-  let config: ReturnType<typeof loadIdentityConfig>;
-  try {
-    config = loadIdentityConfig();
-  } catch (error) {
-    // Configuration errors contain variable names only, never values or secrets.
-    console.error(
-      `Invalid identity configuration: ${(error as Error).message}`,
-    );
-    process.exitCode = 1;
-    return;
-  }
   const app = await NestFactory.create(AppModule, { abortOnError: false });
   app.enableShutdownHooks();
   try {
+    const config = app.get(ConfigService);
     app.connectMicroservice<MicroserviceOptions>({
       transport: Transport.TCP,
-      options: { host: config.host, port: config.port },
+      options: {
+        host: config.get<string>('IDENTITY_HOST', '127.0.0.1'),
+        port: Number(config.get<string>('PORT', '4002')),
+      },
     });
     await app.init();
     await startRabbitMQ(app);

@@ -91,15 +91,13 @@ describe('Keycloak identity adapter boundary', () => {
     ).rejects.toMatchObject({ code: 'OPERATION_UNCERTAIN' });
   });
 
-  it('keeps user, role and email-verification mapping in the worker', async () => {
+  it('keeps user and email-verification mapping in the worker', async () => {
     const writes: unknown[] = [];
     const identity = adapter(async (url, init) => {
       if (init?.method === 'PUT') {
         writes.push(JSON.parse(init.body as string));
         return new Response(null, { status: 204 });
       }
-      if (url.endsWith('/composite'))
-        return Response.json([{ name: 'admin' }, { name: 'realm-admin' }]);
       return Response.json({
         id: 'alice',
         username: 'alice',
@@ -109,7 +107,6 @@ describe('Keycloak identity adapter boundary', () => {
     });
     await expect(identity.get('alice')).resolves.toMatchObject({
       userId: 'alice',
-      roles: ['admin'],
       emailVerified: false,
     });
     await identity.update('alice', { email: 'new@example.invalid' });

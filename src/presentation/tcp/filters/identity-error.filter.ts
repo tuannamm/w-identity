@@ -7,6 +7,7 @@ import {
 import { throwError } from 'rxjs';
 import { DatabaseError } from '@lib-infrastructure/database';
 import { ApplicationError } from '../../../application/errors/application-error';
+import { DomainError } from '../../../domain/errors/domain-error';
 import type { GatewayRpcError } from '../contracts/gateway.contracts';
 const STATUS: Record<ApplicationError['code'], number> = {
   UNAUTHENTICATED: 401,
@@ -17,10 +18,14 @@ const STATUS: Record<ApplicationError['code'], number> = {
   DEPENDENCY_UNAVAILABLE: 503,
   DEPENDENCY_FORBIDDEN: 503,
   OPERATION_UNCERTAIN: 502,
-  ACCOUNT_CREATED_ROLE_FAILED: 502,
   ACCOUNT_DISABLED_SESSION_FAILED: 502,
 };
 export function rpcError(error: unknown): GatewayRpcError {
+  if (error instanceof DomainError) {
+    return error.code === 'ACCOUNT_DISABLED'
+      ? { statusCode: 403, code: 'FORBIDDEN', message: error.message }
+      : { statusCode: 400, code: 'VALIDATION_ERROR', message: error.message };
+  }
   if (error instanceof DatabaseError) {
     return { statusCode: 503, code: error.code, message: error.message };
   }

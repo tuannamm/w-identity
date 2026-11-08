@@ -7,7 +7,6 @@ export type ErrorCode =
   | 'DEPENDENCY_UNAVAILABLE'
   | 'DEPENDENCY_FORBIDDEN'
   | 'OPERATION_UNCERTAIN'
-  | 'ACCOUNT_CREATED_ROLE_FAILED'
   | 'ACCOUNT_DISABLED_SESSION_FAILED';
 export class ApplicationError extends Error {
   constructor(

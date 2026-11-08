@@ -6,7 +6,6 @@ export interface UserAccount {
   lastName?: string;
   enabled: boolean;
   emailVerified: boolean;
-  roles: string[];
 }
 export interface CreateAccount {
   username: string;

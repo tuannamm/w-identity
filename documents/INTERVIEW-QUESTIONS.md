@@ -4,6 +4,8 @@ Che đáp án, nói thành tiếng 60–90 giây: định nghĩa → đánh đ�
 
 ## Phần A. Kiến thức nền
 
+- [ ] 🟢 Clean Architecture có những vòng nào? Ánh xạ vào w-identity ra sao? · 📚 #0
+  *Ý chính:* Entities/Domain chứa model và quy tắc; Use Cases/Application điều phối nghiệp vụ và định nghĩa port; Interface Adapters chuyển đổi giao tiếp và hiện thực port; Frameworks & Drivers là NestJS, MongoDB, Keycloak. Dependency mã nguồn hướng vào trong; AppModule lắp ghép các thành phần.
 - [ ] 🟢 Giải thích: Clean Architecture trong 60 giây? · 📚 #0
   *Ý chính:* Tách quy tắc nghiệp vụ khỏi chi tiết giao tiếp và lưu trữ để kiểm thử và thay đổi độc lập. Điều quyết định là hướng phụ thuộc trong mã nguồn, không phải số thư mục. Chia đủ bốn folder nhưng application vẫn import Mongoose thì ranh giới chưa đúng.
 - [ ] 🟢 Giải thích: Dependency Rule và luồng thực thi? · 📚 #1
@@ -33,8 +35,28 @@ Che đáp án, nói thành tiếng 60–90 giây: định nghĩa → đánh đ�
 - [ ] 🟡 Giải thích: Bài thực hành và câu trả lời phỏng vấn? · 📚 #13
   *Ý chính:* Bài tập: thiết kế UpdateMyProfile với input, Actor, hai ports, lỗi và test. Sau đó giả lập Keycloak timeout, MongoDB down và request của user khác. Kể thiết kế dự kiến như thành tích đã làm; chỉ kể tên thư mục mà không mô tả dependency và trade-off.
 
+- [ ] 🟢 Giải thích bốn tầng Clean Architecture bằng một quán ăn. · 📚 #0
+  *Ý chính:* Domain giữ quy tắc đơn hàng; Application điều phối đặt món; adapter chuyển yêu cầu và hiện thực thanh toán/lưu trữ; drivers là POS/API/database. Khách đổi kênh đặt món thì quy tắc nghiệp vụ vẫn đúng.
+- [ ] 🟡 Trong quán ăn, vì sao PlaceOrder gọi ra máy POS mà dependency vẫn hướng vào trong? · 📚 #1
+  *Ý chính:* Lời gọi lúc chạy đi qua PaymentPort tới adapter. Application sở hữu port; cả use case và POSPaymentAdapter đều phụ thuộc port, use case không import adapter. Composition root chọn implementation.
+- [ ] 🟡 Mọi tương tác giữa các tầng đều cần interface đúng không? · 📚 #4
+  *Ý chính:* Tầng trong cần khả năng của tầng ngoài thì gọi qua port của lớp trong. Controller gọi use case và Application gọi Domain có thể trực tiếp. Port có thể là interface, abstract class hoặc kiểu hàm; không tạo interface chỉ vì hai class nằm ở hai tầng.
+
+- [ ] 🟡 CommandBus, QueryBus và EventBus có phải use case không? · 📚 #3
+  *Ý chính:* Bus định tuyến hoặc phát message; handler mới thực thi use case. Handler Application thuần chứa điều phối, decorator/bus NestJS ở adapter. EventBus không tự điều phối một quy trình dài và không mặc định là RabbitMQ.
+- [ ] 🟡 Vì sao CQRS phải sửa getOrCreate trong luồng đọc profile? · 📚 #3
+  *Ý chính:* getOrCreate có thể ghi dữ liệu. Query mới dùng findByUserId, trả null nếu chưa có profile; command cập nhật mới upsert. Cả hai dùng chung UserRepositoryPort, database và pool; test chứng minh đọc không tạo document.
+
 ## Phần B. Tình huống w-identity
 
+- [ ] 🔴 Import type của UserRepository trong use case có giữ đúng Dependency Rule không? · 📚 #1
+  *Ý chính:* Không. Xóa dependency runtime không xóa dependency mã nguồn. Application sở hữu UserRepositoryPort; UserRepository ở Infrastructure implements port, use case chỉ import port.
+- [ ] 🟡 Vì sao UserRepositoryPort chỉ có findByUserId và update, dù repository có nhiều CRUD methods? · 📚 #4
+  *Ý chính:* Port mô tả nhu cầu của use case, giới hạn API và tránh rò query/database types. Fake chỉ cần hai phương thức; adapter có thể có thêm chi tiết nội bộ.
+- [ ] 🔴 Vì sao AppModule dùng useExisting thay vì useClass cho USER_PROFILE_REPOSITORY? · 📚 #5
+  *Ý chính:* Tái sử dụng instance UserRepository đã được DatabaseModule quản lý. Interface bị xóa khi chạy nên symbol là token NestJS; use case thuần không cần biết token hay decorator.
+- [ ] 🔴 Chứng minh Application không phụ thuộc Mongoose bằng cách nào? · 📚 #10
+  *Ý chính:* Kiểm tra import bằng AST, gồm import type, re-export và dynamic import; áp dụng cả unit test core. Test nghiệp vụ dùng fake ports và không khởi tạo repository thật. Vẫn cần integration/E2E để kiểm tra adapter và wiring.
 - [ ] 🔴 Use case gọi repository lúc chạy có vi phạm Dependency Rule không? · 📚 #1
   *Ý chính:* Không nếu nó phụ thuộc port của lớp trong; adapter bên ngoài implements port. Phân biệt runtime call và source dependency.
 - [ ] 🔴 Dùng @Injectable có tự làm code đạt Clean Architecture không? · 📚 #5

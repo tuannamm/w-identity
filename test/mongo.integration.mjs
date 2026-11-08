@@ -2,29 +2,41 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const { createConnection } = require('mongoose');
+const { Module } = require('@nestjs/common');
+const { NestFactory } = require('@nestjs/core');
 const {
-  MongooseUserProfileRepository,
-  ProfileSchema,
+  DatabaseModule,
+  getDatabaseConnectionToken,
 } = require('@lib-infrastructure/database');
+const {
+  UserRepository,
+} = require('../dist/infrastructure/persistence/mongoose/user.repository.js');
 export async function verifyMongoRepository() {
   const dbName = `identity_test_${randomUUID().replaceAll('-', '')}`;
-  const connection = await createConnection(
-    process.env.IDENTITY_TEST_MONGO_URI ??
-      'mongodb://admin:admin123@localhost:27017/?authSource=admin',
-    { dbName, serverSelectionTimeoutMS: 2000 },
-  ).asPromise();
-  const model = connection.model('UserProfile', ProfileSchema);
+  class ProfileTestModule {}
+  Module({
+    imports: [
+      DatabaseModule.forRoot({
+        uri:
+          process.env.IDENTITY_TEST_MONGO_URI ??
+          'mongodb://admin:admin123@localhost:27017/?authSource=admin',
+        dbName,
+        serverSelectionTimeoutMS: 2000,
+      }),
+      DatabaseModule.forFeature([UserRepository]),
+    ],
+  })(ProfileTestModule);
+  const app = await NestFactory.createApplicationContext(ProfileTestModule, {
+    logger: false,
+    abortOnError: false,
+  });
+  const connection = app.get(getDatabaseConnectionToken());
+  const repository = app.get(UserRepository);
   try {
-    await model.init();
-    const repository = new MongooseUserProfileRepository(model);
     const profiles = await Promise.all(
       Array.from({ length: 20 }, () => repository.getOrCreate('concurrent')),
     );
-    assert.equal(
-      await model.countDocuments({ keycloakUserId: 'concurrent' }),
-      1,
-    );
+    assert.equal(await repository.count({ keycloakUserId: 'concurrent' }), 1);
     assert.ok(
       profiles.every((p) => p.userId === 'concurrent' && !('_id' in p)),
     );
@@ -42,15 +54,12 @@ export async function verifyMongoRepository() {
     );
   } finally {
     await connection.dropDatabase();
-    await connection.close();
+    await app.close();
   }
-  const closedRepository = new MongooseUserProfileRepository(model);
-  await assert.rejects(closedRepository.getOrCreate('offline'), {
+  await assert.rejects(repository.getOrCreate('offline'), {
     code: 'DEPENDENCY_UNAVAILABLE',
   });
   console.log(
     'PASS MongoDB: unavailable storage produces a sanitized application error',
   );
 }
-if (process.argv[1]?.endsWith('mongo.integration.mjs'))
-  await verifyMongoRepository();

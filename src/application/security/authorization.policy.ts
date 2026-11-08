@@ -9,9 +9,8 @@ export class AuthorizationPolicy {
         'Authenticated identity is required',
       );
   }
-  admin(actor?: Actor): asserts actor is Actor {
+  management(actor?: Actor): void {
     this.authenticated(actor);
-    if (!actor.roles.includes('admin'))
-      throw new ApplicationError('FORBIDDEN', 'Administrator role is required');
+    throw new ApplicationError('FORBIDDEN', 'Account management is temporarily unavailable');
   }
 }

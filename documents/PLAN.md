@@ -1,3 +1,5 @@
+> Tài liệu lịch sử: các nội dung về phân quyền và quản lý role không còn phản ánh implementation hiện tại. Các thao tác quản lý tài khoản đang tạm bị từ chối.
+
 # Kế hoạch triển khai w-identity
 
 ## Mục tiêu và phạm vi
@@ -27,11 +29,10 @@ Hướng phụ thuộc: `Application → Domain`; `Infrastructure → Applicatio
 ```text
 src/
 ├── domain/
-│   ├── models/                 # user-account, user-profile
+│   ├── models/                 # user-account, user
 │   ├── policies/               # application-role
-│   └── errors/
 ├── application/
-│   ├── ports/                  # identity-provider, user-profile-repository
+│   ├── ports/                  # identity-provider, user-repository
 │   ├── security/               # actor, authorization policy
 │   ├── use-cases/              # users, roles, me
 │   └── errors/
@@ -44,8 +45,8 @@ src/
 │   ├── contracts/
 │   ├── mappers/
 │   └── filters/
-├── bootstrap/                  # config, DI tokens, identity.module
-├── app.module.ts
+├── bootstrap/                  # DI tokens
+├── app.module.ts               # composition root, config, health, discovery
 └── main.ts
 ```
 
@@ -53,21 +54,21 @@ Chỉ tạo file khi cần, không tạo lớp rỗng. Unit test đặt cạnh c
 
 ### Thứ tự xây dựng kiến trúc
 
-1. **Domain:** tạo `UserAccount`, `UserProfile` và policy cho role `admin`, `user`. Trong mô hình dùng `userId`; adapter MongoDB ánh xạ sang `keycloakUserId`. Không đưa decorator NestJS, Mongoose document hay Keycloak response vào domain.
-2. **Application ports:** khai báo `IdentityProviderPort` cho thao tác tài khoản, role, session và email; `UserProfileRepositoryPort` cung cấp `getOrCreate(userId)` và `update(userId, patch)`. Ports nhận và trả mô hình nội bộ. Khai báo `Actor` gồm `userId`, `issuer`, `roles` và policy yêu cầu đăng nhập/admin.
+1. **Domain:** tạo `UserAccount`, `User` và policy cho role `admin`, `user`. Trong mô hình dùng `userId`; adapter MongoDB ánh xạ sang `keycloakUserId`. Không đưa decorator NestJS, Mongoose document hay Keycloak response vào domain.
+2. **Application ports:** khai báo `IdentityProviderPort` cho thao tác tài khoản, role, session và email; `UserRepositoryPort` cung cấp `getOrCreate(userId)` và `update(userId, patch)`, trả `User`. Ports nhận và trả mô hình nội bộ. Application không import class repository cụ thể, kể cả `import type`. Khai báo `Actor` gồm `userId`, `issuer`, `roles` và policy yêu cầu đăng nhập/admin.
 3. **Use cases:** tạo riêng `CreateUser`, `ListUsers`, `GetUser`, `UpdateUser`, `SetUserStatus`, `ListRoles`, `AssignUserRole`, `RemoveUserRole`, `GetMe`, `UpdateMyProfile`, `SendPasswordResetEmail`. Mỗi use case có `execute(input, actor)`, nhận ports qua constructor, kiểm tra quyền trước khi gọi adapter và trả lỗi nghiệp vụ có mã ổn định.
-4. **Infrastructure:** hiện thực `KeycloakIdentityAdapter` và `MongooseUserProfileRepository`; tách token provider, HTTP client và mapper. Ánh xạ lỗi Keycloak thành lỗi application; schema và document chỉ tồn tại ở lớp persistence. Repository upsert an toàn và có unique index.
+4. **Infrastructure:** hiện thực `KeycloakIdentityAdapter` và `UserRepository`; tách token provider, HTTP client và mapper. Ánh xạ lỗi Keycloak thành lỗi application; schema và document chỉ tồn tại ở lớp persistence. Repository upsert an toàn và có unique index.
 5. **Presentation:** TCP controller nhận request, validate DTO, ánh xạ actor/input, gọi use case rồi ánh xạ response. RPC filter chuyển lỗi application thành `GatewayRpcError`; lỗi bất ngờ trả thông báo chung, log request ID và không lộ stack trace hay thông tin kết nối.
-6. **Bootstrap:** khai báo DI tokens và factory providers, lắp adapters vào use cases trong `IdentityModule`; giữ `AppModule` cho cấu hình, health và discovery. Chuyển `main.ts` sang TCP, bật shutdown hooks. Hoàn thiện trước một luồng `GET /me`, rồi mở rộng các API còn lại; loại bỏ controller/service mẫu khi có thay thế.
+6. **Bootstrap:** khai báo DI tokens trong `bootstrap/tokens.ts`, lắp adapters vào use cases bằng factory providers trong `AppModule`, cùng cấu hình, health và discovery. Token `USER_PROFILE_REPOSITORY` dùng `useExisting: UserRepository` để giữ instance đã được module database quản lý. `main.ts` khởi động TCP và RabbitMQ, bật shutdown hooks.
 
-Không dùng CQRS framework, command bus, event bus hoặc generic base repository trong v1. Ưu tiên kiểu dữ liệu và hàm policy; chỉ tạo entity class khi cần đóng gói hành vi. Khi khóa tài khoản thành công nhưng kết thúc session thất bại, trả lỗi thể hiện rõ tài khoản đã bị khóa.
+Không dùng CQRS framework, command bus hoặc event bus nghiệp vụ trong v1. Adapter persistence kế thừa `MongoDBRepository` dùng chung; port Application chỉ công khai các thao tác hồ sơ cần thiết. Ưu tiên kiểu dữ liệu và hàm policy; chỉ tạo entity class khi cần đóng gói hành vi. Khi khóa tài khoản thành công nhưng kết thúc session thất bại, trả lỗi thể hiện rõ tài khoản đã bị khóa.
 
 ### Kiểm thử kiến trúc
 
 - [x] Kiểm thử Domain và Application bằng fake ports: quyền, role, quyền sở hữu hồ sơ, trùng dữ liệu, tài khoản không tồn tại và lỗi từng phần; không cần khởi động NestJS hoặc database.
 - [x] Kiểm thử adapter với Keycloak/MongoDB: token cache, ánh xạ lỗi, upsert đồng thời và unique index.
 - [x] Kiểm thử presentation: DTO, actor, message pattern, response và RPC error.
-- [x] Bổ sung kiểm tra import: Domain không phụ thuộc lớp ngoài; Application chỉ phụ thuộc Domain và không import framework.
+- [x] Bổ sung kiểm tra dependency bằng AST: Domain chỉ phụ thuộc Domain; Application chỉ phụ thuộc Domain và Application. Áp dụng cả unit test core, type-only import, re-export, dynamic import và require; không có ngoại lệ repository cụ thể.
 - [x] Kiểm thử E2E từ gateway qua TCP đến Keycloak/MongoDB, gồm luồng admin, `/me`, token sai và thiếu quyền.
 
 ## Bước 1 — Chuẩn bị môi trường và cấu hình
@@ -154,6 +155,8 @@ Không dùng CQRS framework, command bus, event bus hoặc generic base reposito
 
 ## Nhật ký triển khai
 
+- Chuẩn hóa ranh giới persistence: Application sở hữu `UserRepositoryPort`; `UserRepository` implements port, wiring dùng `USER_PROFILE_REPOSITORY` với `useExisting`. Unit test core dùng fake object; architecture test dùng AST và không cho phép ngoại lệ import Infrastructure. Đã kiểm chứng trên Node 24.22.2: build, typecheck, lint, 41 unit/boundary/architecture tests, MongoDB integration và E2E gateway → registry → TCP → Keycloak/MongoDB đều đạt. Tài liệu Markdown và `knowledge.html` đã cập nhật theo code hiện tại.
+
 - Bước 1: đã thêm cấu hình fail-fast, `.env.example` và realm fixture dev. SMTP và admin ban đầu cấu hình theo README. Kiểm thử hạ tầng thực tế được ghi riêng ở bước nghiệm thu.
 
 - Bước 2: gateway xác minh JWT/JWKS, secure-by-default và ánh xạ danh tính đã xác minh. Gateway build đạt; 136 tests đạt trên Node 24 với VM modules.
@@ -184,3 +187,25 @@ Không dùng CQRS framework, command bus, event bus hoặc generic base reposito
 | workspace | `d567d9e`, `5495e4a` | Dependency lock và giữ project trong Nx graph |
 
 Các commit nghiệm thu cuối chứa schema API đầy đủ, hướng dẫn vận hành và kết quả kiểm tra; xem `git log` của từng repository.
+
+
+## Cập nhật domain profile
+
+- Domain bổ sung `assertActiveAccount`, `validateProfilePatch` và `DomainError`, độc lập NestJS/Mongoose/transport.
+- `GetMe` và `UpdateMyProfile` gọi policy trạng thái; cập nhật profile luôn gọi validation domain trước khi ghi repository.
+- Presentation giữ kiểm tra cấu trúc/kiểu request và dùng lại validation; domain error được ánh xạ về 400/403 với code API hiện có.
+- Giữ `UserRepositoryPort`; repository cụ thể vẫn nằm trong worker. Mô hình lưu trữ đổi tên thành `UserPersistenceEntity`, giữ collection/index hiện có.
+- Unit test domain, use case và transport cùng architecture checks đã đạt. Mongo integration và target `test:profile` (TCP + MongoDB thật, account lookup giả) đã đạt.
+- E2E toàn hệ thống đang dừng tại POST /users do policy quản trị hiện tại trả 403 `Account management is temporarily unavailable`; suite cũ mong 201. Phần quản trị cần được cập nhật riêng theo chính sách mới.
+
+
+## CQRS — cấu trúc hiện tại
+
+- Đã thêm @nestjs/cqrs 12.1.2, CommandBus/QueryBus và 5 command + 3 query.
+- Message và handler Application thuần nằm trong application/commands và application/queries. Nest adapter đăng ký/inject bằng decorator trong presentation/cqrs, controller dispatch qua bus.
+- Theo yêu cầu, chỉ có UserRepositoryPort chung với findByUserId và update; không tách port đọc/ghi. Query không gọi getOrCreate và không ghi database.
+- Profile chưa có trả null; lần cập nhật đầu tiên upsert. OpenAPI gateway đã bổ sung nullable profile. Không đổi pool/database, không thêm event sourcing hoặc broker flow mới.
+- Giữ nguyên domain validation và hạn chế quản trị tài khoản hiện tại. Unit/architecture test cùng integration bus/TCP/MongoDB xác nhận dispatch và read-only behavior.
+- Full E2E đang thiếu fixtures/pm-realm.json trong worker, độc lập với CQRS; không tự khôi phục fixture quản trị đã bị loại bỏ.
+
+Kiểm chứng CQRS cuối: build/typecheck/lint, 84 unit/boundary/architecture tests của worker, 137 gateway tests (bao gồm OpenAPI profile nullable), Mongo integration và CQRS bus/TCP/MongoDB integration đều đạt. Full E2E chưa chạy qua setup vì thiếu fixture pm-realm.json.

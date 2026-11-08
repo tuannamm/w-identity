@@ -4,10 +4,6 @@ import type {
   UserAccount,
   UserSearch,
 } from '../../domain/models/user-account';
-import {
-  APPLICATION_ROLES,
-  type ApplicationRole,
-} from '../../domain/policies/application-role.policy';
 import type { IdentityProviderPort } from '../../application/ports/identity-provider.port';
 import { ApplicationError } from '../../application/errors/application-error';
 import { KeycloakHttpClient } from '@lib-infrastructure/keycloak';
@@ -20,10 +16,6 @@ interface Representation {
   lastName?: string;
   enabled: boolean;
   emailVerified?: boolean;
-}
-interface Role {
-  id: string;
-  name: string;
 }
 export class KeycloakIdentityAdapter implements IdentityProviderPort {
   constructor(private readonly http: KeycloakHttpClient) {}
@@ -51,7 +43,7 @@ export class KeycloakIdentityAdapter implements IdentityProviderPort {
   private userPath(id: string) {
     return `/users/${encodeURIComponent(id)}`;
   }
-  private map(user: Representation, roles: Role[] = []): UserAccount {
+  private map(user: Representation): UserAccount {
     return {
       userId: user.id,
       username: user.username,
@@ -60,9 +52,7 @@ export class KeycloakIdentityAdapter implements IdentityProviderPort {
       lastName: user.lastName,
       enabled: user.enabled,
       emailVerified: user.emailVerified ?? false,
-      roles: roles
-        .map((r) => r.name)
-        .filter((r) => APPLICATION_ROLES.includes(r as ApplicationRole)),
+
     };
   }
   async create(input: CreateAccount) {
@@ -84,10 +74,7 @@ export class KeycloakIdentityAdapter implements IdentityProviderPort {
   }
   async get(id: string) {
     const user = await this.json<Representation>(this.userPath(id));
-    const roles = await this.json<Role[]>(
-      `${this.userPath(id)}/role-mappings/realm/composite`,
-    );
-    return this.map(user, roles);
+    return this.map(user);
   }
   async list(input: UserSearch) {
     const query = new URLSearchParams({
@@ -99,25 +86,7 @@ export class KeycloakIdentityAdapter implements IdentityProviderPort {
     if (input.enabled !== undefined)
       query.set('enabled', String(input.enabled));
     const users = await this.json<Representation[]>(`/users?${query}`);
-    // Bounded batches avoid flooding Keycloak for large pages.
-    const result: UserAccount[] = [];
-    for (let i = 0; i < users.length; i += 5) {
-      result.push(
-        ...(await Promise.all(
-          users
-            .slice(i, i + 5)
-            .map(async (user) =>
-              this.map(
-                user,
-                await this.json<Role[]>(
-                  `${this.userPath(user.id)}/role-mappings/realm/composite`,
-                ),
-              ),
-            ),
-        )),
-      );
-    }
-    return result;
+    return users.map((user) => this.map(user));
   }
   async update(id: string, input: AccountPatch) {
     const current = await this.json<Representation>(this.userPath(id));
@@ -133,25 +102,6 @@ export class KeycloakIdentityAdapter implements IdentityProviderPort {
   }
   async logout(id: string) {
     await this.command(`${this.userPath(id)}/logout`, 'POST');
-  }
-  async listRoles() {
-    const roles = await this.json<Role[]>('/roles');
-    return APPLICATION_ROLES.filter((r) =>
-      roles.some((role) => role.name === r),
-    );
-  }
-  private async role(name: ApplicationRole) {
-    return this.json<Role>(`/roles/${encodeURIComponent(name)}`);
-  }
-  async assignRole(id: string, role: ApplicationRole) {
-    await this.command(`${this.userPath(id)}/role-mappings/realm`, 'POST', [
-      await this.role(role),
-    ]);
-  }
-  async removeRole(id: string, role: ApplicationRole) {
-    await this.command(`${this.userPath(id)}/role-mappings/realm`, 'DELETE', [
-      await this.role(role),
-    ]);
   }
   async sendPasswordReset(id: string) {
     await this.command(`${this.userPath(id)}/execute-actions-email`, 'PUT', [

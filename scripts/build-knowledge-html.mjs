@@ -1,5 +1,6 @@
-// Sinh knowledge.html từ documents/KNOWLEDGE.md + INTERVIEW-QUESTIONS.md + SLIDES.md.
-// Chạy: npm exec nx run w-identity:docs:knowledge   (hoặc: node scripts/build-knowledge-html.mjs)
+// Sinh knowledge.html (sổ tay Clean Architecture) từ documents/KNOWLEDGE.md + INTERVIEW-QUESTIONS.md + SLIDES.md.
+// Chạy trong apps/w-identity: npm run docs:knowledge   (hoặc: node scripts/build-knowledge-html.mjs)
+// Cùng định dạng markdown và cùng hình dạng DATA với bản của api-gateway; chỉ template là khác.
 // Markdown là nguồn chuẩn; HTML chỉ là bản trình bày, KHÔNG sửa tay file sinh ra.
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -11,6 +12,17 @@ const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (file) => readFileSync(path.join(appDir, file), 'utf8');
 
 marked.setOptions({ gfm: true });
+
+// Inline local diagrams so the standalone page and the hub's srcdoc iframe both work offline.
+marked.use({ walkTokens(token) {
+  if ((token.type === 'link' || token.type === 'image') && /^\.{1,2}\//.test(token.href)) {
+    const file = path.posix.normalize(path.posix.join('documents', token.href));
+    token.href = token.type === 'image' && file.endsWith('.svg')
+      ? `data:image/svg+xml;base64,${Buffer.from(read(file)).toString('base64')}`
+      : path.posix.relative('knowledge-base/projects/clean-architecture', path.posix.join('apps/w-identity', file));
+  }
+} });
+
 
 const STATUS = { '✅': 'done', '📖': 'theory', '⬜': 'todo' };
 
@@ -184,8 +196,8 @@ const data = {
 
 // Nhúng JSON vào <script type="application/json">: phải chặn chuỗi "</script" và "<!--".
 const json = JSON.stringify(data).replace(/</g, '\\u003c');
-const html = read('scripts/knowledge.template.html').replace('__KNOWLEDGE_DATA__', () => json);
-writeFileSync(path.join(appDir, 'knowledge.html'), html);
+const html = readFileSync(path.resolve(appDir, '../../knowledge-base/projects/clean-architecture/template.html'), 'utf8').replace('__KNOWLEDGE_DATA__', () => json);
+writeFileSync(path.resolve(appDir, '../../knowledge-base/projects/clean-architecture/knowledge.html'), html);
 
 console.log(
   `knowledge.html: ${knowledge.topics.length} topics, ${questions.length} questions, ` +

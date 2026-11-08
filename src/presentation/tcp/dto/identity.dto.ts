@@ -1,7 +1,11 @@
+import {
+  PROFILE_FIELDS,
+  validateProfilePatch,
+} from '../../../domain/policies/profile.policy';
 import type {
-  CreateUser,
-  UpdateUser,
-} from '../../../application/use-cases/identity.use-cases';
+  CreateAccount,
+  AccountPatch,
+} from '../../../domain/models/user-account';
 import { ApplicationError } from '../../../application/errors/application-error';
 import type { Actor } from '../../../application/security/actor';
 import type { GatewayRequest } from '../contracts/gateway.contracts';
@@ -27,20 +31,12 @@ export function string(value: unknown, field: string, max = 255): string {
     return invalid(`Invalid ${field}`);
   return value;
 }
-export function accountBody(
-  value: unknown,
-  create: true,
-): Parameters<CreateUser['execute']>[0];
-export function accountBody(
-  value: unknown,
-  create?: false,
-): Parameters<UpdateUser['execute']>[0]['patch'];
+export function accountBody(value: unknown, create: true): CreateAccount;
+export function accountBody(value: unknown, create?: false): AccountPatch;
 export function accountBody(
   value: unknown,
   create = false,
-):
-  | Parameters<CreateUser['execute']>[0]
-  | Parameters<UpdateUser['execute']>[0]['patch'] {
+): CreateAccount | AccountPatch {
   const record = fields(
     value,
     create
@@ -67,46 +63,13 @@ export function accountBody(
     : result;
 }
 export function profileBody(value: unknown) {
-  const record = fields(value, [
-    'avatarUrl',
-    'phoneNumber',
-    'timezone',
-    'locale',
-  ]);
-  if (!Object.keys(record).length)
-    invalid('At least one profile field is required');
+  const record = fields(value, [...PROFILE_FIELDS]);
   const result: Record<string, string> = {};
-  for (const [key, val] of Object.entries(record))
-    result[key] = string(val, key, key === 'avatarUrl' ? 2048 : 100);
-  if (result.avatarUrl) {
-    try {
-      const url = new URL(result.avatarUrl);
-      if (
-        !['https:', 'http:'].includes(url.protocol) ||
-        url.username ||
-        url.password
-      )
-        invalid('Invalid avatarUrl');
-    } catch {
-      invalid('Invalid avatarUrl');
-    }
+  for (const [key, val] of Object.entries(record)) {
+    if (typeof val !== 'string') invalid(`Invalid ${key}`);
+    result[key] = val;
   }
-  if (result.timezone) {
-    try {
-      new Intl.DateTimeFormat('en', { timeZone: result.timezone });
-    } catch {
-      invalid('Invalid timezone');
-    }
-  }
-  if (result.locale) {
-    try {
-      if (!Intl.getCanonicalLocales(result.locale).length)
-        invalid('Invalid locale');
-    } catch {
-      invalid('Invalid locale');
-    }
-  }
-  return result;
+  return validateProfilePatch(result);
 }
 export function listQuery(value: unknown) {
   const q = fields(value, ['search', 'enabled', 'offset', 'limit']);
@@ -127,18 +90,12 @@ export function listQuery(value: unknown) {
 }
 export function actorOf(req: GatewayRequest): Actor {
   const user = req?.user;
-  if (
-    !user ||
-    typeof user.sub !== 'string' ||
-    typeof user.iss !== 'string' ||
-    !Array.isArray(user.roles) ||
-    user.roles.some((r) => typeof r !== 'string')
-  )
+  if (!user || typeof user.sub !== 'string' || typeof user.iss !== 'string')
     throw new ApplicationError(
       'UNAUTHENTICATED',
       'Authenticated identity is required',
     );
-  return { userId: user.sub, issuer: user.iss, roles: user.roles };
+  return { userId: user.sub, issuer: user.iss };
 }
 export function userId(req: GatewayRequest) {
   return string(req?.params?.id, 'user id', 128);

@@ -16,11 +16,12 @@
     "lint": "oxlint src/ test/",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
-    "test:cov": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "node test/identity.e2e.mjs",
+    "test:cov": "NODE_OPTIONS=--experimental-vm-modules jest --coverage --runInBand",
+    "test:debug": "NODE_OPTIONS=--experimental-vm-modules node --inspect-brk ../../node_modules/jest/bin/jest.js --runInBand",
+    "test:e2e": "NODE_OPTIONS=--experimental-vm-modules jest --config test/jest-integration.config.cjs --selectProjects e2e --runInBand",
     "docs:knowledge": "node scripts/build-knowledge-html.mjs",
-    "test:mongo": "node test/mongo.integration.mjs"
+    "test:mongo": "NODE_OPTIONS=--experimental-vm-modules jest --config test/jest-integration.config.cjs --selectProjects mongo --runInBand",
+    "test:profile": "NODE_OPTIONS=--experimental-vm-modules jest --config test/jest-integration.config.cjs --selectProjects profile --runInBand"
   },
   "dependencies": {
     "@lib-infrastructure/core": "^0.0.1",
@@ -30,6 +31,7 @@
     "@nestjs/common": "^12.0.1",
     "@nestjs/config": "^12.1.1",
     "@nestjs/core": "^12.0.1",
+    "@nestjs/cqrs": "^12.1.2",
     "@nestjs/microservices": "^12.4.0",
     "@nestjs/mongoose": "^12.0.1",
     "@nestjs/platform-express": "^12.0.1",
@@ -73,6 +75,30 @@
       "test:mongo": {
         "dependsOn": [
           "build"
+        ],
+        "cache": false
+      },
+      "test:profile": {
+        "dependsOn": [
+          "build"
+        ],
+        "cache": false
+      },
+      "test:cov": {
+        "dependsOn": [
+          "^build"
+        ],
+        "cache": false
+      },
+      "test:watch": {
+        "dependsOn": [
+          "^build"
+        ],
+        "cache": false
+      },
+      "test:debug": {
+        "dependsOn": [
+          "^build"
         ],
         "cache": false
       }

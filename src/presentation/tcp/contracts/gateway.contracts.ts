@@ -5,7 +5,6 @@
 
 export interface GatewayUser {
   sub: string;
-  roles: string[];
   [claim: string]: unknown;
 }
 
