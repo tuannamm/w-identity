@@ -155,3 +155,6 @@ Không dùng CQRS framework, command bus, event bus hoặc generic base reposito
 ## Nhật ký triển khai
 
 - Bước 1: đã thêm cấu hình fail-fast, `.env.example` và realm fixture dev. SMTP và admin ban đầu cấu hình theo README. Kiểm thử hạ tầng thực tế được ghi riêng ở bước nghiệm thu.
+
+- Bước 2: gateway xác minh JWT/JWKS, secure-by-default và ánh xạ danh tính đã xác minh. Gateway build đạt; 136 tests đạt trên Node 24 với VM modules.
+- Clean Architecture bước 1–3: Domain, ports, Actor/policy và 11 use cases đã có; 7 test nghiệp vụ đạt với fake ports.
