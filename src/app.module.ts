@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
-import { getConnectionToken } from '@nestjs/mongoose';
-import type { Connection } from 'mongoose';
-import { createDatabaseIndicator } from '@lib-infrastructure/database';
+import {
+  createDatabaseIndicator,
+  getDatabaseConnectionToken,
+  type DatabaseConnection,
+} from '@lib-infrastructure/database';
 import { HealthModule, ServiceDiscoveryModule } from '@lib-infrastructure/core';
 import { RabbitMQModule, RabbitMQService } from '@lib-infrastructure/rabbitmq';
 import { IdentityModule } from './bootstrap/identity.module';
@@ -13,8 +15,11 @@ const rabbitMQ = RabbitMQModule.forRoot();
     ServiceDiscoveryModule.forRoot(),
     HealthModule.forRootAsync({
       imports: [IdentityModule, rabbitMQ],
-      inject: [getConnectionToken(), RabbitMQService],
-      useFactory: (connection: Connection, rabbit: RabbitMQService) => ({
+      inject: [getDatabaseConnectionToken(), RabbitMQService],
+      useFactory: (
+        connection: DatabaseConnection,
+        rabbit: RabbitMQService,
+      ) => ({
         indicators: [
           createDatabaseIndicator(connection),
           {

@@ -5,6 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { throwError } from 'rxjs';
+import { DatabaseError } from '@lib-infrastructure/database';
 import { ApplicationError } from '../../../application/errors/application-error';
 import type { GatewayRpcError } from '../contracts/gateway.contracts';
 const STATUS: Record<ApplicationError['code'], number> = {
@@ -20,6 +21,9 @@ const STATUS: Record<ApplicationError['code'], number> = {
   ACCOUNT_DISABLED_SESSION_FAILED: 502,
 };
 export function rpcError(error: unknown): GatewayRpcError {
+  if (error instanceof DatabaseError) {
+    return { statusCode: 503, code: error.code, message: error.message };
+  }
   return error instanceof ApplicationError
     ? {
         statusCode: STATUS[error.code],

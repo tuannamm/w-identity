@@ -10,6 +10,9 @@
       "path": "../lib-infrastructure/libs/rabbitmq/tsconfig.lib.json"
     },
     {
+      "path": "../lib-infrastructure/libs/keycloak/tsconfig.lib.json"
+    },
+    {
       "path": "../lib-infrastructure/libs/database/tsconfig.lib.json"
     },
     {

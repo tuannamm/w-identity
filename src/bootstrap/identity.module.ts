@@ -1,26 +1,21 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule, getModelToken } from '@nestjs/mongoose';
-import { DatabaseModule } from '@lib-infrastructure/database';
-import type { Model } from 'mongoose';
+import {
+  KeycloakModule,
+  KeycloakHttpClient,
+} from '@lib-infrastructure/keycloak';
+import {
+  DatabaseModule,
+  UserProfilePersistenceModule,
+  PROFILE_REPOSITORY,
+  type UserProfileRepositoryPort,
+} from '@lib-infrastructure/database';
 import {
   loadIdentityConfig,
   type IdentityConfig,
 } from './config/identity.config';
-import {
-  IDENTITY_CONFIG,
-  IDENTITY_PROVIDER,
-  PROFILE_REPOSITORY,
-} from './tokens';
-import { KeycloakHttpClient } from '../infrastructure/keycloak/keycloak-http.client';
+import { IDENTITY_CONFIG, IDENTITY_PROVIDER } from './tokens';
 import { KeycloakIdentityAdapter } from '../infrastructure/keycloak/keycloak-identity.adapter';
-import {
-  MongooseUserProfileRepository,
-  PROFILE_MODEL,
-  ProfileSchema,
-  type ProfileRecord,
-} from '../infrastructure/persistence/mongoose/user-profile.repository';
 import type { IdentityProviderPort } from '../application/ports/identity-provider.port';
-import type { UserProfileRepositoryPort } from '../application/ports/user-profile-repository.port';
 import { AuthorizationPolicy } from '../application/security/authorization.policy';
 import * as Cases from '../application/use-cases/identity.use-cases';
 import {
@@ -28,27 +23,15 @@ import {
   IdentityController,
 } from '../presentation/tcp/identity.controller';
 @Module({
-  imports: [
-    DatabaseModule,
-    MongooseModule.forFeature([{ name: PROFILE_MODEL, schema: ProfileSchema }]),
-  ],
-  exports: [MongooseModule],
+  imports: [DatabaseModule, UserProfilePersistenceModule, KeycloakModule],
   controllers: [IdentityController],
   providers: [
     { provide: IDENTITY_CONFIG, useFactory: () => loadIdentityConfig() },
     {
       provide: IDENTITY_PROVIDER,
-      inject: [IDENTITY_CONFIG],
-      useFactory: (config: IdentityConfig) =>
-        new KeycloakIdentityAdapter(new KeycloakHttpClient(config)),
-    },
-    {
-      provide: PROFILE_REPOSITORY,
-      inject: [getModelToken(PROFILE_MODEL)],
-      useFactory: async (model: Model<ProfileRecord>) => {
-        await model.init();
-        return new MongooseUserProfileRepository(model);
-      },
+      inject: [KeycloakHttpClient],
+      useFactory: (client: KeycloakHttpClient) =>
+        new KeycloakIdentityAdapter(client),
     },
     {
       provide: IDENTITY_CASES,

@@ -6,7 +6,7 @@ const { createConnection } = require('mongoose');
 const {
   MongooseUserProfileRepository,
   ProfileSchema,
-} = require('../dist/infrastructure/persistence/mongoose/user-profile.repository.js');
+} = require('@lib-infrastructure/database');
 export async function verifyMongoRepository() {
   const dbName = `identity_test_${randomUUID().replaceAll('-', '')}`;
   const connection = await createConnection(

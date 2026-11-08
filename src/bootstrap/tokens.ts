@@ -1,3 +1,2 @@
 export const IDENTITY_CONFIG = Symbol('IDENTITY_CONFIG');
 export const IDENTITY_PROVIDER = Symbol('IDENTITY_PROVIDER');
-export const PROFILE_REPOSITORY = Symbol('PROFILE_REPOSITORY');

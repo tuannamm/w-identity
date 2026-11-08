@@ -1,6 +1,7 @@
 import { actorOf, accountBody, listQuery, profileBody } from './identity.dto';
 import { rpcError } from '../filters/identity-error.filter';
 import { ApplicationError } from '../../../application/errors/application-error';
+import { DatabaseError } from '@lib-infrastructure/database';
 describe('TCP boundary', () => {
   it('rejects privileged/unknown fields and malformed values', () => {
     expect(() => profileBody({ userId: 'victim', locale: 'vi' })).toThrow();
@@ -18,6 +19,11 @@ describe('TCP boundary', () => {
       statusCode: 500,
       code: 'INTERNAL_ERROR',
       message: 'Internal identity service error',
+    });
+    expect(rpcError(new DatabaseError('Profile storage unavailable'))).toEqual({
+      statusCode: 503,
+      code: 'DEPENDENCY_UNAVAILABLE',
+      message: 'Profile storage unavailable',
     });
     expect(
       rpcError(new ApplicationError('FORBIDDEN', 'Denied')).statusCode,

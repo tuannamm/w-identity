@@ -1,13 +1,7 @@
 export interface IdentityConfig {
   port: number;
   host: string;
-  mongoUri: string;
-  keycloakUrl: string;
-  realm: string;
-  clientId: string;
-  clientSecret: string;
   issuer: string;
-  timeoutMs: number;
 }
 export function loadIdentityConfig(
   env: NodeJS.ProcessEnv = process.env,
@@ -44,18 +38,9 @@ export function loadIdentityConfig(
       throw new Error(`${key} is invalid`);
     return Number(raw);
   };
-  const mongoUri = required('MONGODB_URI');
-  if (!/^mongodb(?:\+srv)?:\/\//.test(mongoUri))
-    throw new Error('MONGODB_URI must use mongodb or mongodb+srv');
   return {
     port: integer('PORT', 4002, 65535),
     host: env.IDENTITY_HOST ?? '127.0.0.1',
-    mongoUri,
-    keycloakUrl: url('KEYCLOAK_URL'),
-    realm: required('KEYCLOAK_REALM'),
-    clientId: required('KEYCLOAK_CLIENT_ID'),
-    clientSecret: required('KEYCLOAK_CLIENT_SECRET'),
     issuer: url('KEYCLOAK_ISSUER'),
-    timeoutMs: integer('KEYCLOAK_TIMEOUT_MS', 3000, 60000),
   };
 }

@@ -10,7 +10,8 @@ import {
 } from '../../domain/policies/application-role.policy';
 import type { IdentityProviderPort } from '../../application/ports/identity-provider.port';
 import { ApplicationError } from '../../application/errors/application-error';
-import { KeycloakHttpClient } from './keycloak-http.client';
+import { KeycloakHttpClient } from '@lib-infrastructure/keycloak';
+import { mapKeycloakError } from './keycloak-error';
 interface Representation {
   id: string;
   username: string;
@@ -26,6 +27,27 @@ interface Role {
 }
 export class KeycloakIdentityAdapter implements IdentityProviderPort {
   constructor(private readonly http: KeycloakHttpClient) {}
+  private async request(path: string, method = 'GET', body?: unknown) {
+    try {
+      return await this.http.request(path, method, body);
+    } catch (error) {
+      return mapKeycloakError(error);
+    }
+  }
+  private async json<T>(path: string): Promise<T> {
+    try {
+      return await this.http.json<T>(path);
+    } catch (error) {
+      return mapKeycloakError(error);
+    }
+  }
+  private async command(path: string, method: string, body?: unknown) {
+    try {
+      return await this.http.command(path, method, body);
+    } catch (error) {
+      return mapKeycloakError(error);
+    }
+  }
   private userPath(id: string) {
     return `/users/${encodeURIComponent(id)}`;
   }
@@ -44,7 +66,7 @@ export class KeycloakIdentityAdapter implements IdentityProviderPort {
     };
   }
   async create(input: CreateAccount) {
-    const response = await this.http.request('/users', 'POST', {
+    const response = await this.request('/users', 'POST', {
       ...input,
       enabled: true,
       emailVerified: false,
@@ -61,8 +83,8 @@ export class KeycloakIdentityAdapter implements IdentityProviderPort {
     return this.map({ id: decodeURIComponent(id), ...input, enabled: true });
   }
   async get(id: string) {
-    const user = await this.http.json<Representation>(this.userPath(id));
-    const roles = await this.http.json<Role[]>(
+    const user = await this.json<Representation>(this.userPath(id));
+    const roles = await this.json<Role[]>(
       `${this.userPath(id)}/role-mappings/realm/composite`,
     );
     return this.map(user, roles);
@@ -76,7 +98,7 @@ export class KeycloakIdentityAdapter implements IdentityProviderPort {
     if (input.search !== undefined) query.set('search', input.search);
     if (input.enabled !== undefined)
       query.set('enabled', String(input.enabled));
-    const users = await this.http.json<Representation[]>(`/users?${query}`);
+    const users = await this.json<Representation[]>(`/users?${query}`);
     // Bounded batches avoid flooding Keycloak for large pages.
     const result: UserAccount[] = [];
     for (let i = 0; i < users.length; i += 5) {
@@ -87,7 +109,7 @@ export class KeycloakIdentityAdapter implements IdentityProviderPort {
             .map(async (user) =>
               this.map(
                 user,
-                await this.http.json<Role[]>(
+                await this.json<Role[]>(
                   `${this.userPath(user.id)}/role-mappings/realm/composite`,
                 ),
               ),
@@ -98,8 +120,8 @@ export class KeycloakIdentityAdapter implements IdentityProviderPort {
     return result;
   }
   async update(id: string, input: AccountPatch) {
-    const current = await this.http.json<Representation>(this.userPath(id));
-    await this.http.command(this.userPath(id), 'PUT', {
+    const current = await this.json<Representation>(this.userPath(id));
+    await this.command(this.userPath(id), 'PUT', {
       ...input,
       ...(input.email !== undefined && input.email !== current.email
         ? { emailVerified: false }
@@ -107,39 +129,33 @@ export class KeycloakIdentityAdapter implements IdentityProviderPort {
     });
   }
   async setEnabled(id: string, enabled: boolean) {
-    await this.http.command(this.userPath(id), 'PUT', { enabled });
+    await this.command(this.userPath(id), 'PUT', { enabled });
   }
   async logout(id: string) {
-    await this.http.command(`${this.userPath(id)}/logout`, 'POST');
+    await this.command(`${this.userPath(id)}/logout`, 'POST');
   }
   async listRoles() {
-    const roles = await this.http.json<Role[]>('/roles');
+    const roles = await this.json<Role[]>('/roles');
     return APPLICATION_ROLES.filter((r) =>
       roles.some((role) => role.name === r),
     );
   }
   private async role(name: ApplicationRole) {
-    return this.http.json<Role>(`/roles/${encodeURIComponent(name)}`);
+    return this.json<Role>(`/roles/${encodeURIComponent(name)}`);
   }
   async assignRole(id: string, role: ApplicationRole) {
-    await this.http.command(
-      `${this.userPath(id)}/role-mappings/realm`,
-      'POST',
-      [await this.role(role)],
-    );
+    await this.command(`${this.userPath(id)}/role-mappings/realm`, 'POST', [
+      await this.role(role),
+    ]);
   }
   async removeRole(id: string, role: ApplicationRole) {
-    await this.http.command(
-      `${this.userPath(id)}/role-mappings/realm`,
-      'DELETE',
-      [await this.role(role)],
-    );
+    await this.command(`${this.userPath(id)}/role-mappings/realm`, 'DELETE', [
+      await this.role(role),
+    ]);
   }
   async sendPasswordReset(id: string) {
-    await this.http.command(
-      `${this.userPath(id)}/execute-actions-email`,
-      'PUT',
-      ['UPDATE_PASSWORD'],
-    );
+    await this.command(`${this.userPath(id)}/execute-actions-email`, 'PUT', [
+      'UPDATE_PASSWORD',
+    ]);
   }
 }

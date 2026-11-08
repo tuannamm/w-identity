@@ -25,6 +25,9 @@
       "path": "../lib-infrastructure/libs/rabbitmq"
     },
     {
+      "path": "../lib-infrastructure/libs/keycloak"
+    },
+    {
       "path": "../lib-infrastructure/libs/database"
     },
     {

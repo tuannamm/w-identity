@@ -13,6 +13,8 @@ NestJS service theo Clean Architecture, nhận request qua TCP và RabbitMQ. K�
 
 Fixture có thể import lại vào **realm mới/rỗng** để dựng môi trường tương đương; không tự động reset dữ liệu realm hiện tại. Service account chỉ có `manage-users`, `view-users`, `view-realm`, không có `realm-admin`.
 
+`IdentityModule` import `KeycloakModule` từ [@lib-infrastructure/keycloak](../lib-infrastructure/libs/keycloak/README.md). Thư viện đọc `KEYCLOAK_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`, `KEYCLOAK_TIMEOUT_MS`; kết nối được kiểm tra cấu hình lúc bootstrap và chỉ lấy token khi có request đầu tiên. `KEYCLOAK_ISSUER` tiếp tục do worker đọc để kiểm tra actor. `KeycloakIdentityAdapter` giữ logic user/role và ánh xạ `KeycloakError` sang contract lỗi ứng dụng hiện có.
+
 Cổng TCP mặc định chỉ bind `127.0.0.1`; khi triển khai container, đặt `IDENTITY_HOST=0.0.0.0` và cô lập mạng để chỉ gateway được gọi. Health dùng cổng 9002. MongoDB lưu database riêng `w-identity`.
 
 ## Kiểm tra

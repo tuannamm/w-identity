@@ -8,7 +8,7 @@ import {
 } from './identity.use-cases';
 import { AuthorizationPolicy } from '../security/authorization.policy';
 import type { IdentityProviderPort } from '../ports/identity-provider.port';
-import type { UserProfileRepositoryPort } from '../ports/user-profile-repository.port';
+import type { UserProfileRepositoryPort } from '@lib-infrastructure/database/contracts';
 const admin = { userId: 'admin', issuer: 'issuer', roles: ['admin'] };
 const user = { userId: 'alice', issuer: 'issuer', roles: ['user'] };
 describe('identity use cases', () => {

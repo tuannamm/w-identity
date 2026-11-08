@@ -3,11 +3,11 @@ import type {
   CreateAccount,
   UserSearch,
 } from '../../domain/models/user-account';
-import type { ProfilePatch } from '../../domain/models/user-profile';
+import type { ProfilePatch } from '@lib-infrastructure/database/contracts';
 import { isApplicationRole } from '../../domain/policies/application-role.policy';
 import { ApplicationError } from '../errors/application-error';
 import type { IdentityProviderPort } from '../ports/identity-provider.port';
-import type { UserProfileRepositoryPort } from '../ports/user-profile-repository.port';
+import type { UserProfileRepositoryPort } from '@lib-infrastructure/database/contracts';
 import type { Actor } from '../security/actor';
 import { AuthorizationPolicy } from '../security/authorization.policy';
 
