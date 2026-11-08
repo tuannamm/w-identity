@@ -162,3 +162,5 @@ Không dùng CQRS framework, command bus, event bus hoặc generic base reposito
 - Bước 4: adapter Keycloak, token cache/refresh, mapping dữ liệu và lỗi đã hoàn thành; kiểm thử không retry tác dụng phụ, lỗi 403/404/409/500 và dùng chung token đồng thời đạt. Kiểm thử Keycloak thật nằm ở bước nghiệm thu.
 
 - Bước 5: MongoDB repository đã qua kiểm thử database thật: unique index, 20 upsert đồng thời không trùng, lưu/đọc hồ sơ, không lộ `_id` và lỗi storage được chuẩn hóa.
+
+- Bước 3 / Clean Architecture bước 4–6: TCP controller, DTO/filter, composition root và readiness MongoDB đã tích hợp; toàn luồng JWT thật → gateway → registry thật → TCP → Keycloak/MongoDB đạt.

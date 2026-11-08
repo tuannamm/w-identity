@@ -1,4 +1,9 @@
-import type { AccountPatch, CreateAccount, UserAccount, UserSearch } from '../../domain/models/user-account';
+import type {
+  AccountPatch,
+  CreateAccount,
+  UserAccount,
+  UserSearch,
+} from '../../domain/models/user-account';
 import type { ApplicationRole } from '../../domain/policies/application-role.policy';
 export interface IdentityProviderPort {
   create(input: CreateAccount): Promise<UserAccount>;
