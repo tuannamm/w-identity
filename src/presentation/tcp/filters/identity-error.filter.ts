@@ -19,9 +19,17 @@ const STATUS: Record<ApplicationError['code'], number> = {
   DEPENDENCY_FORBIDDEN: 503,
   OPERATION_UNCERTAIN: 502,
   ACCOUNT_DISABLED_SESSION_FAILED: 502,
+  ROLE_NOT_FOUND: 404,
+  PERMISSION_NOT_FOUND: 404,
+  ROLE_CONFLICT: 409,
+  PERMISSION_CONFLICT: 409,
+  ROLE_IN_USE: 409,
+  PERMISSION_IN_USE: 409,
 };
 export function rpcError(error: unknown): GatewayRpcError {
   if (error instanceof DomainError) {
+    if (error.code === 'SYSTEM_ROLE_PROTECTED')
+      return { statusCode: 403, code: error.code, message: error.message };
     return error.code === 'ACCOUNT_DISABLED'
       ? { statusCode: 403, code: 'FORBIDDEN', message: error.message }
       : { statusCode: 400, code: 'VALIDATION_ERROR', message: error.message };

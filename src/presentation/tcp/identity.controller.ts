@@ -1,18 +1,18 @@
+import { GetMyAccessQuery } from '../../application/queries/access.queries';
 import { Controller, Logger, UseFilters } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import type { GatewayRequest } from './contracts/gateway.contracts';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import * as Commands from '../../application/commands/identity.commands';
 import * as Queries from '../../application/queries/identity.queries';
-import {
-  accountBody,
-  actorOf,
-  fields,
-  listQuery,
-  profileBody,
-  userId,
-} from './dto/identity.dto';
-import { ApplicationError } from '../../application/errors/application-error';
+import { actorOf } from './dto/actor.mapper';
+import { parseInput } from './dto/parse-input';
+import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UserIdParamDto } from './dto/user-id-param.dto';
+import { SetUserStatusDto } from './dto/set-user-status.dto';
+import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { IdentityErrorFilter } from './filters/identity-error.filter';
 @Controller()
 @UseFilters(IdentityErrorFilter)
@@ -40,7 +40,7 @@ export class IdentityController {
   create(@Payload() req: GatewayRequest) {
     return this.run(req, () => {
       const actor = actorOf(req);
-      const input = accountBody(req.body, true);
+      const input = { ...parseInput(CreateUserDto, req.body) };
       return this.commands.execute(
         new Commands.CreateUserCommand(input, actor),
       );
@@ -50,7 +50,10 @@ export class IdentityController {
   list(@Payload() req: GatewayRequest) {
     return this.run(req, () =>
       this.queries.execute(
-        new Queries.ListUsersQuery(listQuery(req.query), actorOf(req)),
+        new Queries.ListUsersQuery(
+          { ...parseInput(ListUsersQueryDto, req.query) },
+          actorOf(req),
+        ),
       ),
     );
   }
@@ -58,7 +61,10 @@ export class IdentityController {
   get(@Payload() req: GatewayRequest) {
     return this.run(req, () =>
       this.queries.execute(
-        new Queries.GetUserQuery({ userId: userId(req) }, actorOf(req)),
+        new Queries.GetUserQuery(
+          { userId: parseInput(UserIdParamDto, req.params).id },
+          actorOf(req),
+        ),
       ),
     );
   }
@@ -67,7 +73,10 @@ export class IdentityController {
     return this.run(req, () =>
       this.commands.execute(
         new Commands.UpdateUserCommand(
-          { userId: userId(req), patch: accountBody(req.body) },
+          {
+            userId: parseInput(UserIdParamDto, req.params).id,
+            patch: { ...parseInput(UpdateUserDto, req.body) },
+          },
           actorOf(req),
         ),
       ),
@@ -76,15 +85,13 @@ export class IdentityController {
   @MessagePattern('identity.users.setStatus')
   status(@Payload() req: GatewayRequest) {
     return this.run(req, () => {
-      const input = fields(req.body, ['enabled']);
-      if (typeof input.enabled !== 'boolean')
-        throw new ApplicationError(
-          'VALIDATION_ERROR',
-          'enabled must be boolean',
-        );
+      const input = parseInput(SetUserStatusDto, req.body);
       return this.commands.execute(
         new Commands.SetUserStatusCommand(
-          { userId: userId(req), enabled: input.enabled },
+          {
+            userId: parseInput(UserIdParamDto, req.params).id,
+            enabled: input.enabled,
+          },
           actorOf(req),
         ),
       );
@@ -95,10 +102,16 @@ export class IdentityController {
     return this.run(req, () =>
       this.commands.execute(
         new Commands.SendPasswordResetEmailCommand(
-          { userId: userId(req) },
+          { userId: parseInput(UserIdParamDto, req.params).id },
           actorOf(req),
         ),
       ),
+    );
+  }
+  @MessagePattern('identity.me.permissions')
+  permissions(@Payload() req: GatewayRequest) {
+    return this.run(req, () =>
+      this.queries.execute(new GetMyAccessQuery(actorOf(req))),
     );
   }
   @MessagePattern('identity.me.get')
@@ -112,7 +125,7 @@ export class IdentityController {
     return this.run(req, () =>
       this.commands.execute(
         new Commands.UpdateMyProfileCommand(
-          profileBody(req.body),
+          { ...parseInput(UpdateMyProfileDto, req.body) },
           actorOf(req),
         ),
       ),

@@ -41,32 +41,37 @@ export function validateProfilePatch(patch: ProfilePatch): ProfilePatch {
       invalid(field);
     result[field] = value;
   }
-  if (result.avatarUrl) {
-    try {
-      const url = new URL(result.avatarUrl);
-      if (
-        !['http:', 'https:'].includes(url.protocol) ||
-        url.username ||
-        url.password
-      )
-        invalid('avatarUrl');
-    } catch {
-      invalid('avatarUrl');
-    }
-  }
-  if (result.timezone) {
-    try {
-      new Intl.DateTimeFormat('en', { timeZone: result.timezone });
-    } catch {
-      invalid('timezone');
-    }
-  }
-  if (result.locale) {
-    try {
-      if (!Intl.getCanonicalLocales(result.locale).length) invalid('locale');
-    } catch {
-      invalid('locale');
-    }
-  }
+  if (result.avatarUrl && !isSafeAvatarUrl(result.avatarUrl))
+    invalid('avatarUrl');
+  if (result.timezone && !isValidTimezone(result.timezone)) invalid('timezone');
+  if (result.locale && !isValidLocaleTag(result.locale)) invalid('locale');
   return result;
+}
+
+export function isSafeAvatarUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      ['http:', 'https:'].includes(url.protocol) &&
+      !url.username &&
+      !url.password
+    );
+  } catch {
+    return false;
+  }
+}
+export function isValidTimezone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+export function isValidLocaleTag(value: string): boolean {
+  try {
+    return Intl.getCanonicalLocales(value).length > 0;
+  } catch {
+    return false;
+  }
 }

@@ -10,7 +10,7 @@ const {
 } = require('@lib-infrastructure/database');
 const {
   UserRepository,
-} = require('../dist/infrastructure/persistence/mongoose/user.repository.js');
+} = require('../dist/infrastructure/persistence/mongoose/user/user.repository.js');
 export async function verifyMongoRepository() {
   const dbName = `identity_test_${randomUUID().replaceAll('-', '')}`;
   class ProfileTestModule {}
@@ -34,7 +34,7 @@ export async function verifyMongoRepository() {
   const repository = app.get(UserRepository);
   try {
     const profiles = await Promise.all(
-      Array.from({ length: 20 }, () => repository.getOrCreate('concurrent')),
+      Array.from({ length: 20 }, () => repository.update('concurrent', { locale: 'vi' })),
     );
     assert.equal(await repository.count({ keycloakUserId: 'concurrent' }), 1);
     assert.ok(
@@ -46,7 +46,7 @@ export async function verifyMongoRepository() {
     });
     assert.equal(updated.locale, 'vi');
     assert.equal(
-      (await repository.getOrCreate('concurrent')).timezone,
+      (await repository.findByUserId('concurrent')).timezone,
       'Asia/Ho_Chi_Minh',
     );
     console.log(
@@ -56,7 +56,7 @@ export async function verifyMongoRepository() {
     await connection.dropDatabase();
     await app.close();
   }
-  await assert.rejects(repository.getOrCreate('offline'), {
+  await assert.rejects(repository.update('offline', { locale: 'vi' }), {
     code: 'DEPENDENCY_UNAVAILABLE',
   });
   console.log(

@@ -11,6 +11,9 @@ export class AuthorizationPolicy {
   }
   management(actor?: Actor): void {
     this.authenticated(actor);
-    throw new ApplicationError('FORBIDDEN', 'Account management is temporarily unavailable');
+    throw new ApplicationError(
+      'FORBIDDEN',
+      'Account management is temporarily unavailable',
+    );
   }
 }

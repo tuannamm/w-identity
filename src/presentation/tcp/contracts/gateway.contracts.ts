@@ -27,3 +27,8 @@ export interface GatewayRpcError {
   code?: string;
   details?: unknown;
 }
+
+/** Internal RPC: request uses GatewayRequest.params.id; no Actor or HTTP route. */
+export interface ResolvePermissionsResponse {
+  permissions: string[];
+}

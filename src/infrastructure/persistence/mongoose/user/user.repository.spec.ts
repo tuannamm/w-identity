@@ -53,10 +53,13 @@ it('profile repository retries duplicate-key races and maps storage errors safel
       throw new Error('mongodb://private:secret@host');
     },
   } as unknown as Model<ProfileRecord>);
-  await assert.rejects(unavailable.getOrCreate('alice'), (error) => {
-    assert.ok(error instanceof DatabaseError);
-    assert.equal(error.code, 'DEPENDENCY_UNAVAILABLE');
-    assert.doesNotMatch(error.stack ?? '', /private|secret/);
-    return true;
-  });
+  await assert.rejects(
+    unavailable.update('alice', { locale: 'vi' }),
+    (error) => {
+      assert.ok(error instanceof DatabaseError);
+      assert.equal(error.code, 'DEPENDENCY_UNAVAILABLE');
+      assert.doesNotMatch(error.stack ?? '', /private|secret/);
+      return true;
+    },
+  );
 });

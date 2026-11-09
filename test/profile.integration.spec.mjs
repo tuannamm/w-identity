@@ -14,7 +14,7 @@ const {
 } = require('@lib-infrastructure/database');
 const {
   UserRepository,
-} = require('../dist/infrastructure/persistence/mongoose/user.repository.js');
+} = require('../dist/infrastructure/persistence/mongoose/user/user.repository.js');
 const {
   AuthorizationPolicy,
 } = require('../dist/application/security/authorization.policy.js');

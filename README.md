@@ -12,6 +12,7 @@ Application sở hữu hai hợp đồng: `IdentityProviderPort` và `UserReposi
 
 1. Từ workspace root, chạy `docker compose up -d mongodb keycloak rabbitmq`.
 2. Import `fixtures/pm-realm.json` bằng Keycloak Admin Console (Create realm → Browse). Fixture chỉ dùng dev; import lần đầu, không ghi đè realm đang dùng. Realm `pm` có access token 5 phút, client PKCE `pm-web` và service account `identity-service`.
+   Client `pm-web` chỉ chấp nhận `http://localhost:3001/callback` (UI dev chạy cổng 3001; cổng 3000 là của gateway). Đổi cổng thì sửa `redirectUris`, `webOrigins` và `post.logout.redirect.uris` trong fixture, và `GATEWAY_CORS_ORIGINS` của gateway.
 3. Tạo tài khoản thử nghiệm trong Keycloak Admin Console.
 4. Trong Realm settings → Email, cấu hình SMTP rồi thử gửi email. Không lưu SMTP password vào Git.
 5. Copy `.env.example` thành `.env`, sửa các secret. Gateway dùng `KEYCLOAK_ISSUER=http://localhost:8081/realms/pm`, `KEYCLOAK_AUDIENCE=w-identity`.

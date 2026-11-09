@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseError, MongoDBRepository } from '@lib-infrastructure/database';
-import type { UserRepositoryPort } from '../../../application/ports/user-repository.port';
-import type { ProfilePatch, User } from '../../../domain/models/user';
+import type { UserRepositoryPort } from '../../../../application/ports/user-repository.port';
+import type { ProfilePatch, User } from '../../../../domain/models/user';
 import {
   UserPersistenceEntity,
   type ProfileRecord,
@@ -34,9 +34,6 @@ export class UserRepository
     } catch {
       throw new DatabaseError('Profile storage unavailable');
     }
-  }
-  async getOrCreate(userId: string): Promise<User> {
-    return this.write(userId, {});
   }
   async update(userId: string, patch: ProfilePatch): Promise<User> {
     return this.write(userId, patch);

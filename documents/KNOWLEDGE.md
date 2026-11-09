@@ -1,10 +1,10 @@
-> **Trạng thái code hiện tại:** các thao tác quản lý tài khoản (`CreateUser`, `UpdateUser`, `SetUserStatus`, `SendPasswordResetEmail`) vẫn còn handler nhưng `AuthorizationPolicy.management()` luôn từ chối với `FORBIDDEN`, và phân quyền/quản lý role không còn trong implementation. Luồng đang chạy và có test là `GetMe`, `GetUser`, `ListUsers` (đọc) và `UpdateMyProfile`. Ở các bài dưới, ví dụ lấy từ luồng quản lý tài khoản được ghi rõ là **kịch bản thiết kế (hiện bị tắt)**; ví dụ không ghi chú là hành vi đang chạy.
+> **Trạng thái code hiện tại:** các handler quản lý tài khoản, role và permission đã được triển khai, nhưng `AuthorizationPolicy.management()` luôn từ chối với `FORBIDDEN` nên các thao tác này hiện bị tắt. Luồng đang chạy và có test là `GetMe`, `GetUser`, `ListUsers` (đọc) và `UpdateMyProfile`. Ở các bài dưới, ví dụ lấy từ luồng quản lý tài khoản được ghi rõ là **kịch bản thiết kế (hiện bị tắt)**; ví dụ không ghi chú là hành vi đang chạy.
 
 # Clean Architecture — học, ôn tập và phỏng vấn
 
 Ví dụ xuyên suốt là thiết kế và code **w-identity** đã có kiểm thử; đây chưa phải bằng chứng vận hành production. Xem [PLAN.md](./PLAN.md) (tài liệu lịch sử, nhiều chỗ đã khác code hiện tại).
 
-Học theo thứ tự 0–15. Phần DDD đã tách sang sổ tay riêng (`#ddd`). Mỗi ngày đọc hai chủ đề (khoảng 8 ngày), tự nói câu trả lời trong 60–90 giây rồi luyện thẻ câu hỏi. Sau đó làm bài thực hành và một buổi phỏng vấn giả lập 20 phút. Trạng thái 📖 là tài liệu lý thuyết, không khẳng định bạn đã học thuộc.
+Học theo thứ tự 0–16. Phần DDD và phần phân quyền đã tách sang các sổ tay riêng (`#ddd`, `#authz`). Mỗi ngày đọc hai chủ đề (khoảng 8 ngày), tự nói câu trả lời trong 60–90 giây rồi luyện thẻ câu hỏi. Sau đó làm bài thực hành và một buổi phỏng vấn giả lập 20 phút. Trạng thái 📖 là tài liệu lý thuyết, không khẳng định bạn đã học thuộc.
 
 ## Bảng tiến độ
 
@@ -26,6 +26,7 @@ Học theo thứ tự 0–15. Phần DDD đã tách sang sổ tay riêng (`#ddd`
 | 13 | Bài thực hành và câu trả lời phỏng vấn | Clean Architecture | 📖 |
 | 14 | So sánh Clean Architecture, DDD và CQRS | Clean Architecture | 📖 |
 | 15 | SOLID, Boundary và cấu trúc dự án | Clean Architecture | 📖 |
+| 16 | Role và Permission (RBAC) trong w-identity | Clean Architecture | 📖 |
 
 ## 0. Clean Architecture trong 60 giây
 
@@ -114,9 +115,9 @@ Domain diễn tả khái niệm và bất biến nghiệp vụ. Entity không b�
 
 **Ví dụ w-identity:** `User` mô tả hồ sơ; `assertActiveAccount` chặn tài khoản bị vô hiệu hóa đọc/sửa profile; `validateProfilePatch` kiểm tra locale, timezone, avatar URL và giới hạn field. Các policy là hàm thuần ở `domain/policies/profile.policy.ts`, chỉ dùng mô hình domain và `DomainError`.
 
-`UpdateMyProfile` kiểm tra actor, lấy account qua port, gọi domain policy rồi mới ghi qua repository port. Vì use case tự gọi validation nên HTTP, TCP, RabbitMQ hoặc lời gọi trực tiếp đều chịu cùng quy tắc. DTO kiểm tra cấu trúc request và dùng lại validation domain; filter ánh xạ domain error thành response 400/403.
+`UpdateMyProfile` kiểm tra actor, lấy account qua port, gọi domain policy rồi mới ghi qua repository port. Vì use case tự gọi validation nên HTTP, TCP, RabbitMQ hoặc lời gọi trực tiếp đều chịu cùng quy tắc. DTO kiểm tra cấu trúc request bằng class-validator và dùng chung các hàm kiểm tra định dạng với Domain; filter ánh xạ domain error thành response 400/403.
 
-`UserPersistenceEntity` có decorator Mongoose nằm ở Infrastructure, ánh xạ collection `user_profiles`; nó khác với domain model `User`. Các model có thể giữ dạng interface khi chưa cần đóng gói hành vi trong class.
+`UserPersistenceEntity` có decorator Mongoose nằm ở Infrastructure, ánh xạ collection `users`; nó khác với domain model `User`. Các model có thể giữ dạng interface khi chưa cần đóng gói hành vi trong class.
 
 **Bẫy phỏng vấn:** Đưa mọi validation vào entity hoặc tạo class rỗng chỉ để gọi là DDD.
 
@@ -197,10 +198,12 @@ Trong w-identity có bốn dạng dữ liệu, mỗi dạng sống ở một l�
 
 | Dạng | Lớp | Ví dụ |
 |---|---|---|
-| DTO / contract giao tiếp | Presentation | `identity.dto.ts`, `GatewayRequest` trong `gateway.contracts.ts` |
+| DTO / contract giao tiếp | Presentation | các class trong `presentation/tcp/dto/`, `GatewayRequest` trong `gateway.contracts.ts` |
 | Input của use case | Application | `UpdateMyProfileCommand`, `Actor` |
 | Mô hình nội bộ | Domain | `User`, `UserAccount`, `ProfilePatch` |
-| Document lưu trữ | Infrastructure | `UserPersistenceEntity` (decorator Mongoose, collection `user_profiles`) |
+| Document lưu trữ | Infrastructure | `UserPersistenceEntity` (decorator Mongoose, collection `users`) |
+
+Controller chuyển DTO instance thành object thuần trước khi dựng Command/Query; DTO class chỉ thuộc Presentation. `actor.mapper.ts` giữ `actorOf`.
 
 Mapper nằm ở ranh giới giữa hai dạng: controller đổi `GatewayRequest.user` thành `Actor`; repository đổi record MongoDB thành `User`. Nếu hai hình dạng giống hệt và cùng thuộc một lớp thì không cần mapper.
 
@@ -222,7 +225,7 @@ Ba loại kiểm tra khác nhau, đặt ở ba nơi:
 | Phân quyền (authorization) | Bạn có được làm việc này không? | Application | `AuthorizationPolicy.authenticated(actor)` kiểm tra actor có `userId` và đúng `issuer` |
 | Bất biến nghiệp vụ | Dữ liệu/trạng thái có hợp lệ không? | Domain | `assertActiveAccount`, `validateProfilePatch` |
 
-Presentation còn kiểm tra hình dạng dữ liệu (kiểu, định dạng) bằng DTO. Khi DTO và Domain cùng kiểm tra một quy tắc, DTO nên gọi lại hàm Domain để không lệch nhau.
+Presentation dùng `plainToInstance` và `validateSync` trong `parseInput` để kiểm tra class DTO, từ chối field lạ và ném `ApplicationError(VALIDATION_ERROR)` với message không chứa giá trị nhập. Các decorator `IsSafeAvatarUrl`, `IsTimezone`, `IsLocaleTag` dùng chung hàm thuần trong `profile.policy.ts`; use case vẫn gọi `validateProfilePatch` để giữ bất biến khi được gọi trực tiếp. Application/Domain không import class-validator.
 
 **Ví dụ w-identity:** Gateway xác minh JWT; GetMe lấy ID từ actor, không nhận ID người khác trong body, nên không thể đọc hay sửa hồ sơ của người khác bằng cách đổi body. `AuthorizationPolicy.management()` hiện từ chối mọi actor; nó nằm ở Application nên dù gọi từ TCP, RabbitMQ hay trực tiếp, lệnh quản lý đều bị chặn như nhau.
 
@@ -316,10 +319,10 @@ Chi phí cụ thể: nhiều file hơn cho cùng một tính năng, mapping gi�
 
 ### Đọc code theo một luồng cụ thể
 
-1. [IdentityController.profile](../src/presentation/tcp/identity.controller.ts) nhận message `identity.me.updateProfile`, chuyển body qua `profileBody` và danh tính qua `actorOf`.
+1. [IdentityController.profile](../src/presentation/tcp/identity.controller.ts) nhận message `identity.me.updateProfile`, chuyển body qua `parseInput(UpdateMyProfileDto, req.body)` và danh tính qua `actorOf`.
 2. Controller dispatch `UpdateMyProfileCommand` qua CommandBus; Nest adapter nhận lệnh và thực thi [UpdateMyProfileHandler](../src/application/commands/identity-command.handlers.ts) kiểm tra actor, dùng `IdentityProviderPort.get(actor.userId)` để xác nhận tài khoản còn hoạt động, rồi gọi `profiles.update(actor.userId, input)`.
 3. [UserRepositoryPort](../src/application/ports/user-repository.port.ts) định nghĩa thao tác cần thiết bằng `ProfilePatch` và `User`; không chứa `Model`, query MongoDB hoặc decorator.
-4. [UserRepository](../src/infrastructure/persistence/mongoose/user.repository.ts) implements port, thực hiện upsert, xử lý duplicate-key race và ánh xạ record thành `User`.
+4. [UserRepository](../src/infrastructure/persistence/mongoose/user/user.repository.ts) implements port, thực hiện upsert, xử lý duplicate-key race và ánh xạ record thành `User`.
 5. [AppModule](../src/app.module.ts) chọn adapter và lắp chúng vào use case. Đây là nơi biết cả port lẫn implementation.
 6. [Unit test](../src/application/cqrs.spec.ts) truyền fake object chỉ có hai phương thức của port; [architecture test](../test/architecture.spec.ts) ngăn core phụ thuộc ngược ra ngoài.
 
@@ -450,6 +453,25 @@ Dùng khi chia code thành package/lib riêng (ví dụ Nx libraries): REP/CCP/C
 **Bẫy phỏng vấn:** Thuộc tên SOLID nhưng không nêu ví dụ code; cho rằng Clean Architecture bắt buộc có presenter và output port ở mọi API; nghĩ rằng chia thư mục đúng là đã đúng ranh giới mà không có công cụ kiểm tra.
 
 **Tự trả lời:** viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.
+
+## 16. Role và Permission (RBAC) trong w-identity
+
+Chi tiết kế hoạch và tiến độ: `PLAN-ROLE-PERMISSION.md`.
+
+| Quyết định | Lý do | Đánh đổi |
+|---|---|---|
+| Role và Permission lưu trong MongoDB, không dùng Keycloak realm roles | Domain thuần, test không cần Keycloak, permission `resource:action` mịn hơn role Keycloak | Phải tự đồng bộ nếu sau này muốn đưa role vào JWT |
+| Mỗi user đúng 1 role (`user_roles.keycloakUserId` unique) | Mô hình đơn giản; gán role là một upsert idempotent | Muốn nhiều role phải đổi schema và use case |
+| Role `admin`, `user` là role hệ thống, bất biến | Không ai vô tình xóa hoặc tước quyền role nền tảng | Cần cờ `system` và repository lọc `system: { $ne: true }` để chặn cả race |
+| User chưa có bản ghi → role mặc định `user` khi đọc | Không cần migrate user cũ | Role `user` phải được seed; thiếu thì trả `ROLE_NOT_FOUND` |
+| Grant/revoke bằng `$addToSet`/`$pull` | Nguyên tử, idempotent, an toàn khi chạy song song | Trả về role sau cập nhật, không có lịch sử thay đổi |
+| Chặn xóa Permission/Role đang được dùng | Giữ toàn vẹn tham chiếu mà MongoDB không có FK | Kiểm tra rồi xóa vẫn có cửa sổ race nhỏ; chấp nhận ở v1 vì chỉ admin thao tác |
+
+Gateway tra permission theo `sub` đã xác minh qua `identity.authz.permissions`, cache 30 giây mặc định và từ chối khi tra cứu lỗi. UI gọi `GET /me/permissions` để lấy role cùng quyền phục vụ hiển thị. Tài khoản khóa trả danh sách quyền rỗng cho tra cứu nội bộ; thay đổi có thể trễ tối đa TTL cache.
+
+**Bẫy phỏng vấn:** nhầm RBAC với ABAC; để quy tắc "role system bất biến" trong controller thay vì domain; quên rằng MongoDB không có khóa ngoại nên phải tự bảo vệ tham chiếu.
+
+**Tự trả lời:** vì sao kiểm tra `system` ở cả policy lẫn câu lệnh MongoDB (defense in depth)? Bạn đổi gì nếu cần nhiều role mỗi user?
 
 ## Từ điển nhanh
 

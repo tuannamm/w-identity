@@ -52,7 +52,6 @@ export class KeycloakIdentityAdapter implements IdentityProviderPort {
       lastName: user.lastName,
       enabled: user.enabled,
       emailVerified: user.emailVerified ?? false,
-
     };
   }
   async create(input: CreateAccount) {

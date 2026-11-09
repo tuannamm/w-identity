@@ -19,7 +19,7 @@
     "test:cov": "NODE_OPTIONS=--experimental-vm-modules jest --coverage --runInBand",
     "test:debug": "NODE_OPTIONS=--experimental-vm-modules node --inspect-brk ../../node_modules/jest/bin/jest.js --runInBand",
     "test:e2e": "NODE_OPTIONS=--experimental-vm-modules jest --config test/jest-integration.config.cjs --selectProjects e2e --runInBand",
-    "docs:knowledge": "node scripts/build-knowledge-html.mjs && node scripts/build-knowledge-html.mjs ddd documents/ddd",
+    "docs:knowledge": "node scripts/build-knowledge-html.mjs && node scripts/build-knowledge-html.mjs ddd documents/ddd && node scripts/build-knowledge-html.mjs authz documents/authz",
     "test:mongo": "NODE_OPTIONS=--experimental-vm-modules jest --config test/jest-integration.config.cjs --selectProjects mongo --runInBand",
     "test:profile": "NODE_OPTIONS=--experimental-vm-modules jest --config test/jest-integration.config.cjs --selectProjects profile --runInBand"
   },
@@ -35,6 +35,8 @@
     "@nestjs/microservices": "^12.4.0",
     "@nestjs/mongoose": "^12.0.1",
     "@nestjs/platform-express": "^12.0.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
     "mongoose": "^9.12.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"

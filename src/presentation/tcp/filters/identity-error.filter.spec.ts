@@ -20,6 +20,12 @@ describe('identity RPC errors', () => {
     ['DEPENDENCY_FORBIDDEN', 503],
     ['OPERATION_UNCERTAIN', 502],
     ['ACCOUNT_DISABLED_SESSION_FAILED', 502],
+    ['ROLE_NOT_FOUND', 404],
+    ['PERMISSION_NOT_FOUND', 404],
+    ['ROLE_CONFLICT', 409],
+    ['PERMISSION_CONFLICT', 409],
+    ['ROLE_IN_USE', 409],
+    ['PERMISSION_IN_USE', 409],
   ])('maps %s to HTTP %s', (code, statusCode) => {
     expect(
       rpcError(new ApplicationError(code, 'Safe message', { field: 'email' })),

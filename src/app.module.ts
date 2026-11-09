@@ -1,3 +1,5 @@
+import { AccessResolver } from './application/security/access-resolver';
+import { AuthzController } from './presentation/tcp/authz.controller';
 import { CqrsModule } from '@nestjs/cqrs';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -13,11 +15,24 @@ import {
   KeycloakModule,
   KeycloakHttpClient,
 } from '@lib-infrastructure/keycloak';
-import { IDENTITY_PROVIDER, USER_REPOSITORY } from './bootstrap/tokens';
-import { UserRepository } from './infrastructure/persistence/mongoose/user.repository';
+import {
+  IDENTITY_PROVIDER,
+  PERMISSION_REPOSITORY,
+  ROLE_REPOSITORY,
+  USER_REPOSITORY,
+  USER_ROLE_REPOSITORY,
+} from './bootstrap/tokens';
+import { RbacSeeder } from './bootstrap/rbac.seeder';
+import { UserRepository } from './infrastructure/persistence/mongoose/user/user.repository';
+import { PermissionRepository } from './infrastructure/persistence/mongoose/permission/permission.repository';
+import { RoleRepository } from './infrastructure/persistence/mongoose/role/role.repository';
+import { UserRoleRepository } from './infrastructure/persistence/mongoose/user/user-role.repository';
 import { KeycloakIdentityAdapter } from './infrastructure/keycloak/keycloak-identity.adapter';
 import { AuthorizationPolicy } from './application/security/authorization.policy';
 import { IdentityCqrsHandlers } from './presentation/cqrs/identity.handlers';
+import { RbacCqrsHandlers } from './presentation/cqrs/rbac.handlers';
+import { PermissionController } from './presentation/tcp/permission.controller';
+import { RoleController } from './presentation/tcp/role.controller';
 import { IdentityController } from './presentation/tcp/identity.controller';
 const rabbitMQ = RabbitMQModule.forRoot();
 @Module({
@@ -28,7 +43,12 @@ const rabbitMQ = RabbitMQModule.forRoot();
       cache: true,
     }),
     DatabaseModule,
-    DatabaseModule.forFeature([UserRepository]),
+    DatabaseModule.forFeature([
+      UserRepository,
+      PermissionRepository,
+      RoleRepository,
+      UserRoleRepository,
+    ]),
     KeycloakModule,
     rabbitMQ,
     ServiceDiscoveryModule.forRoot(),
@@ -50,11 +70,26 @@ const rabbitMQ = RabbitMQModule.forRoot();
       }),
     }),
   ],
-  controllers: [IdentityController],
+  controllers: [
+    IdentityController,
+    PermissionController,
+    RoleController,
+    AuthzController,
+  ],
   providers: [
     {
       provide: USER_REPOSITORY,
       useExisting: UserRepository,
+    },
+    { provide: PERMISSION_REPOSITORY, useExisting: PermissionRepository },
+    { provide: ROLE_REPOSITORY, useExisting: RoleRepository },
+    { provide: USER_ROLE_REPOSITORY, useExisting: UserRoleRepository },
+    RbacSeeder,
+    {
+      provide: AccessResolver,
+      inject: [IDENTITY_PROVIDER, ROLE_REPOSITORY, USER_ROLE_REPOSITORY],
+      useFactory: (identity, roles, userRoles) =>
+        new AccessResolver(identity, roles, userRoles),
     },
     {
       provide: IDENTITY_PROVIDER,
@@ -69,6 +104,7 @@ const rabbitMQ = RabbitMQModule.forRoot();
         new AuthorizationPolicy(config.get<string>('KEYCLOAK_ISSUER', '')),
     },
     ...IdentityCqrsHandlers,
+    ...RbacCqrsHandlers,
   ],
 })
 export class AppModule {}

@@ -1,5 +1,5 @@
 import { Entity, Field } from '@lib-infrastructure/database';
-import type { ProfilePatch } from '../../../domain/models/user';
+import type { ProfilePatch } from '../../../../domain/models/user';
 
 export interface ProfileRecord extends ProfilePatch {
   keycloakUserId: string;
