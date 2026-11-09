@@ -88,10 +88,33 @@ Note: Application sở hữu PaymentPort. PlaceOrder gọi qua port; POSPaymentA
 
 ## CQRS: bus định tuyến, handler thực thi
 
-Commands: tạo/cập nhật tài khoản, cập nhật profile, khóa tài khoản, gửi email.
+Commands: cập nhật profile (đang chạy); tạo/cập nhật/khóa tài khoản, gửi email (có handler nhưng hiện bị `management()` từ chối).
 
 Queries: GetMe, GetUser, ListUsers.
 
 Một UserRepositoryPort chung. Query đọc bằng findByUserId; profile chưa có trả null. Command cập nhật mới tạo profile.
 
 Note: NestJS bus/decorator ở adapter; Application và Domain vẫn thuần. CQRS không bắt buộc tách database hoặc dùng Event Sourcing. Bus nội bộ không phải broker RabbitMQ.
+
+
+---
+
+## So sánh DDD, Clean Architecture và CQRS
+
+DDD: hiểu và mô hình hóa nghiệp vụ.
+
+Clean Architecture: bảo vệ ranh giới và hướng dependency.
+
+CQRS: tách trách nhiệm đọc và thay đổi trạng thái.
+
+Note: Chi tiết DDD ở sổ tay riêng (#ddd). Có thể kết hợp cả ba; có folder domain, repository hoặc bus chưa đủ để kết luận đã áp dụng DDD tốt. Strategic Design cần ngôn ngữ và bounded context; Tactical Design dùng những pattern phù hợp với quy tắc thực tế.
+
+---
+
+## DDD và w-identity
+
+Identity là subdomain generic: Keycloak lo phần lớn.
+
+w-identity chỉ dùng tư tưởng DDD nhẹ: tách Domain, đặt tên theo nghiệp vụ, UserAccount khác User. Không có aggregate hay domain event.
+
+Note: Nói rõ phần đã làm và chưa làm. Ví dụ nhà hàng dùng để học aggregate, bounded context, context map; không gán cho code w-identity. Thêm: subdomain core/supporting/generic, ACL, Domain Event khác Integration Event.

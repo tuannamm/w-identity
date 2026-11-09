@@ -1,10 +1,10 @@
-> Tài liệu lịch sử: các nội dung về phân quyền và quản lý role không còn phản ánh implementation hiện tại. Các thao tác quản lý tài khoản đang tạm bị từ chối.
+> **Trạng thái code hiện tại:** các thao tác quản lý tài khoản (`CreateUser`, `UpdateUser`, `SetUserStatus`, `SendPasswordResetEmail`) vẫn còn handler nhưng `AuthorizationPolicy.management()` luôn từ chối với `FORBIDDEN`, và phân quyền/quản lý role không còn trong implementation. Luồng đang chạy và có test là `GetMe`, `GetUser`, `ListUsers` (đọc) và `UpdateMyProfile`. Ở các bài dưới, ví dụ lấy từ luồng quản lý tài khoản được ghi rõ là **kịch bản thiết kế (hiện bị tắt)**; ví dụ không ghi chú là hành vi đang chạy.
 
 # Clean Architecture — học, ôn tập và phỏng vấn
 
-Ví dụ xuyên suốt là thiết kế và code **w-identity** đã có kiểm thử; đây chưa phải bằng chứng vận hành production. Xem [PLAN.md](./PLAN.md).
+Ví dụ xuyên suốt là thiết kế và code **w-identity** đã có kiểm thử; đây chưa phải bằng chứng vận hành production. Xem [PLAN.md](./PLAN.md) (tài liệu lịch sử, nhiều chỗ đã khác code hiện tại).
 
-Học theo thứ tự 0–13. Mỗi ngày đọc hai chủ đề, tự nói câu trả lời trong 60–90 giây rồi luyện thẻ câu hỏi. Cuối tuần làm bài thực hành và một buổi phỏng vấn giả lập 20 phút. Trạng thái 📖 là tài liệu lý thuyết, không khẳng định bạn đã học thuộc.
+Học theo thứ tự 0–15. Phần DDD đã tách sang sổ tay riêng (`#ddd`). Mỗi ngày đọc hai chủ đề (khoảng 8 ngày), tự nói câu trả lời trong 60–90 giây rồi luyện thẻ câu hỏi. Sau đó làm bài thực hành và một buổi phỏng vấn giả lập 20 phút. Trạng thái 📖 là tài liệu lý thuyết, không khẳng định bạn đã học thuộc.
 
 ## Bảng tiến độ
 
@@ -24,6 +24,8 @@ Học theo thứ tự 0–13. Mỗi ngày đọc hai chủ đề, tự nói câu
 | 11 | Clean, Hexagonal, Onion và layered architecture | Clean Architecture | 📖 |
 | 12 | Đánh đổi và khi nào áp dụng | Clean Architecture | 📖 |
 | 13 | Bài thực hành và câu trả lời phỏng vấn | Clean Architecture | 📖 |
+| 14 | So sánh Clean Architecture, DDD và CQRS | Clean Architecture | 📖 |
+| 15 | SOLID, Boundary và cấu trúc dự án | Clean Architecture | 📖 |
 
 ## 0. Clean Architecture trong 60 giây
 
@@ -124,7 +126,13 @@ Domain diễn tả khái niệm và bất biến nghiệp vụ. Entity không b�
 
 Use case mô tả một mục đích của người dùng, điều phối domain và ports, kiểm tra quyền và quyết định thứ tự thao tác.
 
-**Ví dụ w-identity:** SetUserStatus kiểm tra admin, đổi trạng thái tài khoản rồi kết thúc session khi khóa.
+Một use case thường có dạng: nhận input và `Actor` → kiểm tra quyền → lấy dữ liệu qua port → gọi quy tắc Domain → ghi qua port → trả kết quả. Mỗi use case là một class/hàm riêng (một mục đích), không gom thành `UserService` chứa mọi thao tác. Use case không biết HTTP, TCP hay NestJS.
+
+**Ví dụ w-identity (đang chạy):** `UpdateMyProfileHandler` làm đúng chuỗi đó: `auth.authenticated(actor)` → `identity.get(actor.userId)` → `assertActiveAccount` → `validateProfilePatch` → `profiles.update(...)`. Thứ tự này là quyết định của Application; Domain chỉ cung cấp các quy tắc, không biết thứ tự gọi.
+
+**Kịch bản thiết kế (hiện bị tắt):** `SetUserStatusHandler` gọi `auth.management(actor)`, đổi trạng thái, rồi nếu khóa thì kết thúc session và báo `ACCOUNT_DISABLED_SESSION_FAILED` khi bước cuối lỗi. Hiện `management()` luôn ném `FORBIDDEN` nên luồng này không chạy tới `setEnabled`; dùng nó để học cách thiết kế lỗi từng phần, không phải hành vi hiện có.
+
+**Phân biệt:** quy tắc *Domain* đúng với mọi ứng dụng dùng mô hình đó (tài khoản bị khóa không được sửa profile); quy tắc *Application* thuộc riêng một use case hoặc ứng dụng (ai được gọi, bước nào trước bước nào, gọi port nào).
 
 **Bẫy phỏng vấn:** Tạo UserService khổng lồ hoặc để controller điều phối nhiều adapter.
 
@@ -133,6 +141,8 @@ Use case mô tả một mục đích của người dùng, điều phối domain
 ### CQRS trong w-identity
 
 Controller gửi message qua `CommandBus` hoặc `QueryBus`. Bus chỉ tìm handler; handler mới thực hiện use case. NestJS bus/decorator nằm ở `presentation/cqrs/`, còn command/query và logic handler thuần nằm ở `application/commands` và `application/queries`. Domain/Application không import `@nestjs/cqrs`.
+
+Bốn command quản lý tài khoản (`CreateUser`, `UpdateUser`, `SetUserStatus`, `SendPasswordResetEmail`) hiện bị `management()` từ chối; `UpdateMyProfileCommand` và các query đang chạy.
 
 | Command — thay đổi trạng thái hoặc tạo tác động bên ngoài | Query — đọc dữ liệu |
 |---|---|
@@ -159,7 +169,7 @@ Tham khảo: [NestJS CQRS](https://docs.nestjs.com/recipes/cqrs).
 
 Port là hợp đồng lớp nghiệp vụ cần; adapter chuyển hợp đồng đó thành lời gọi công nghệ cụ thể. Interface nên nói bằng ngôn ngữ của bên sử dụng.
 
-**Ví dụ w-identity:** `IdentityProviderPort` cung cấp `get`, `create`; `KeycloakIdentityAdapter` chuyển dữ liệu Keycloak sang `UserAccount`. `UserRepositoryPort` cung cấp `findByUserId(userId)` trả `User | null` và `update(userId, patch)` trả `User`; query và command dùng chung port này. Những khả năng CRUD kế thừa từ `MongoDBRepository` không nằm trong hợp đồng mà use case sử dụng.
+**Ví dụ w-identity:** `IdentityProviderPort` có bảy thao tác (`create`, `get`, `list`, `update`, `setEnabled`, `logout`, `sendPasswordReset`) và chỉ dùng mô hình nội bộ như `UserAccount`, `AccountPatch`; `KeycloakIdentityAdapter` chuyển dữ liệu Keycloak sang các mô hình đó. Luồng profile hiện chỉ dùng `get`. `UserRepositoryPort` cung cấp `findByUserId(userId)` trả `User | null` và `update(userId, patch)` trả `User`; query và command dùng chung port này. Những khả năng CRUD kế thừa từ `MongoDBRepository` không nằm trong hợp đồng mà use case sử dụng.
 
 **Bẫy phỏng vấn:** Định nghĩa port trả Keycloak SDK object khiến abstraction vẫn rò rỉ nhà cung cấp.
 
@@ -168,6 +178,10 @@ Port là hợp đồng lớp nghiệp vụ cần; adapter chuyển hợp đồng
 ## 5. DIP, DI và composition root
 
 DIP là nguyên tắc phụ thuộc vào abstraction; DI là cách cung cấp dependency từ ngoài. Composition root chọn implementation và lắp object graph. DI không tự bảo đảm DIP.
+
+Chính xác hơn, DIP có hai ý: module cấp cao không phụ thuộc module cấp thấp (cả hai cùng phụ thuộc abstraction), và abstraction không phụ thuộc chi tiết mà chi tiết phụ thuộc abstraction. Điều kiện để DIP thật sự đảo hướng là abstraction **thuộc về phía cấp cao** (Application), không nằm cạnh implementation. Có DI mà interface đặt trong Infrastructure thì use case vẫn import ngược ra ngoài.
+
+Các cách DI: constructor injection (dùng trong w-identity, dependency bắt buộc và rõ ràng), setter/property injection (dễ tạo object ở trạng thái thiếu dependency), và service locator (ẩn dependency, khó test, thường là anti-pattern).
 
 **Ví dụ w-identity:** Use case nhận port qua constructor thuần; factory trong `AppModule` truyền adapter vào. Interface TypeScript bị xóa khi chạy; Nest dùng symbol `USER_PROFILE_REPOSITORY` làm runtime token và `useExisting: UserRepository` để tái sử dụng instance đã được `DatabaseModule` khởi tạo. Constructor use case không cần decorator hoặc token NestJS.
 
@@ -179,6 +193,17 @@ DIP là nguyên tắc phụ thuộc vào abstraction; DI là cách cung cấp de
 
 DTO giao tiếp, mô hình nội bộ và document lưu trữ có mục đích khác nhau. Mapper chỉ cần khi có ranh giới thật hoặc hình dạng khác nhau.
 
+Trong w-identity có bốn dạng dữ liệu, mỗi dạng sống ở một lớp:
+
+| Dạng | Lớp | Ví dụ |
+|---|---|---|
+| DTO / contract giao tiếp | Presentation | `identity.dto.ts`, `GatewayRequest` trong `gateway.contracts.ts` |
+| Input của use case | Application | `UpdateMyProfileCommand`, `Actor` |
+| Mô hình nội bộ | Domain | `User`, `UserAccount`, `ProfilePatch` |
+| Document lưu trữ | Infrastructure | `UserPersistenceEntity` (decorator Mongoose, collection `user_profiles`) |
+
+Mapper nằm ở ranh giới giữa hai dạng: controller đổi `GatewayRequest.user` thành `Actor`; repository đổi record MongoDB thành `User`. Nếu hai hình dạng giống hệt và cùng thuộc một lớp thì không cần mapper.
+
 **Ví dụ w-identity:** GatewayRequest.user được chuyển thành Actor; MongoDB _id không xuất hiện trong response API.
 
 **Bẫy phỏng vấn:** Trả nguyên document hoặc token Keycloak; ngược lại tạo mapper giống hệt ở mọi hàm gây dư thừa.
@@ -189,7 +214,17 @@ DTO giao tiếp, mô hình nội bộ và document lưu trữ có mục đích k
 
 Presentation kiểm tra kiểu/định dạng dữ liệu; application kiểm tra quyền và điều phối; domain bảo vệ bất biến. Kiểm tra ở biên không thay thế kiểm tra nghiệp vụ.
 
-**Ví dụ w-identity:** Gateway xác minh JWT; GetMe lấy ID từ actor, không nhận ID người khác trong body. Use case admin kiểm tra role trước khi gọi port.
+Ba loại kiểm tra khác nhau, đặt ở ba nơi:
+
+| Loại | Câu hỏi | Nơi đặt | Ví dụ |
+|---|---|---|---|
+| Xác thực (authentication) | Bạn là ai, token có hợp lệ không? | Gateway/Presentation | Gateway xác minh JWT, dựng `GatewayRequest.user` |
+| Phân quyền (authorization) | Bạn có được làm việc này không? | Application | `AuthorizationPolicy.authenticated(actor)` kiểm tra actor có `userId` và đúng `issuer` |
+| Bất biến nghiệp vụ | Dữ liệu/trạng thái có hợp lệ không? | Domain | `assertActiveAccount`, `validateProfilePatch` |
+
+Presentation còn kiểm tra hình dạng dữ liệu (kiểu, định dạng) bằng DTO. Khi DTO và Domain cùng kiểm tra một quy tắc, DTO nên gọi lại hàm Domain để không lệch nhau.
+
+**Ví dụ w-identity:** Gateway xác minh JWT; GetMe lấy ID từ actor, không nhận ID người khác trong body, nên không thể đọc hay sửa hồ sơ của người khác bằng cách đổi body. `AuthorizationPolicy.management()` hiện từ chối mọi actor; nó nằm ở Application nên dù gọi từ TCP, RabbitMQ hay trực tiếp, lệnh quản lý đều bị chặn như nhau.
 
 **Bẫy phỏng vấn:** Chỉ dùng guard ở controller rồi nghĩ use case an toàn khi được gọi từ transport khác.
 
@@ -199,7 +234,17 @@ Presentation kiểm tra kiểu/định dạng dữ liệu; application kiểm tr
 
 Lỗi application có mã ổn định, không chứa HTTP/RPC exception. Adapter chuyển lỗi kỹ thuật; presentation ánh xạ ra giao thức. Timeout không chứng minh thao tác chưa xảy ra.
 
-**Ví dụ w-identity:** Tạo user thành công nhưng gán role lỗi: trả thông tin user đã tạo. TCP filter chuyển sang GatewayRpcError; không tự tạo lại user.
+Ba tầng xử lý lỗi, mỗi tầng một việc:
+
+- **Domain:** `DomainError` diễn đạt vi phạm quy tắc (profile sai locale, tài khoản bị khóa).
+- **Application:** `ApplicationError` có `code` ổn định (`UNAUTHENTICATED`, `FORBIDDEN`, `ACCOUNT_DISABLED_SESSION_FAILED`), không chứa mã HTTP hay RPC.
+- **Presentation:** filter (`identity-error.filter.ts`) ánh xạ lỗi ra giao thức: domain error thành 400/403, `DatabaseError` thành 503 `DEPENDENCY_UNAVAILABLE`.
+
+Với thao tác có tác dụng phụ, timeout nghĩa là *chưa biết kết quả*. Muốn retry an toàn cần idempotency key hoặc bước đối soát (đọc lại trạng thái) trước khi lặp.
+
+**Ví dụ w-identity:** `UpdateMyProfile` gọi Keycloak rồi MongoDB: nếu Keycloak lỗi thì chưa ghi gì; nếu MongoDB down thì repository trả `DatabaseError` và filter ra 503. Update profile là upsert theo `userId` nên lặp lại cùng patch cho cùng kết quả cuối.
+
+**Kịch bản thiết kế (hiện bị tắt):** tạo user ở Keycloak thành công nhưng bước sau (gán role mặc định) lỗi thì trả lỗi kèm ID tài khoản đã tạo, không tự xóa. Code hiện tại không còn bước gán role, nhưng nguyên tắc "báo rõ phần đã xảy ra, không tự rollback thứ không rollback được" vẫn là bài học.
 
 **Bẫy phỏng vấn:** Catch mọi lỗi rồi trả 500; retry POST mù quáng có thể tạo tác dụng phụ trùng.
 
@@ -209,7 +254,9 @@ Lỗi application có mã ổn định, không chứa HTTP/RPC exception. Adapte
 
 Clean Architecture không cung cấp distributed transaction. Cần quyết định nguồn dữ liệu chuẩn, ranh giới ghi và chiến lược lỗi từng phần.
 
-**Ví dụ w-identity:** Keycloak giữ tài khoản; MongoDB giữ hồ sơ tạo lười. Không cố dùng MongoDB transaction để rollback lời gọi Keycloak.
+Các lựa chọn thường gặp khi hai hệ thống phải nhất quán: một nguồn dữ liệu chuẩn (source of truth) cho mỗi thông tin; ghi theo thứ tự có thể phục hồi; saga với bước bù trừ (compensation); outbox (ghi sự kiện cùng transaction với dữ liệu rồi phát sau) khi cần phát event tin cậy; hoặc chấp nhận eventual consistency kèm đối soát. Mỗi lựa chọn thêm hạ tầng và độ phức tạp, nên chỉ dùng khi yêu cầu đòi hỏi.
+
+**Ví dụ w-identity:** Keycloak giữ tài khoản; MongoDB giữ hồ sơ, được tạo khi cần (lazy creation: lần cập nhật đầu tiên mới upsert, đọc thì không tạo). Nhờ vậy không có bước "đồng bộ hai bên lúc tạo tài khoản" để lỗi. Không cố dùng MongoDB transaction để rollback lời gọi Keycloak.
 
 **Bẫy phỏng vấn:** Tưởng thêm repository là có atomicity giữa Keycloak và MongoDB. Outbox/saga chỉ thêm khi yêu cầu và hạ tầng phù hợp.
 
@@ -218,6 +265,15 @@ Clean Architecture không cung cấp distributed transaction. Cần quyết đ�
 ## 10. Chiến lược kiểm thử
 
 Kiểm thử nghiệp vụ bằng fake ports; adapter bằng integration test; TCP mapping bằng controller test; các luồng chính bằng E2E. Thêm kiểm tra import để giữ ranh giới.
+
+| Mức | Kiểm tra gì | Dùng gì | Số lượng |
+|---|---|---|---|
+| Unit (Domain, Application) | Quy tắc, thứ tự điều phối, lỗi | Fake ports, không NestJS/DB | Nhiều, rất nhanh |
+| Integration (adapter) | Adapter đúng hợp đồng với hệ thống thật: index, upsert, ánh xạ lỗi | MongoDB/Keycloak thật hoặc container | Vừa |
+| Contract/controller | Message pattern, DTO, ánh xạ lỗi sang RPC | Controller test | Vừa |
+| E2E | Luồng chính từ gateway tới lưu trữ | Toàn hệ thống | Ít, chậm |
+
+Fake khác mock: fake là implementation đơn giản chạy được (ví dụ repository lưu trong bộ nhớ) và test kiểm tra kết quả; mock xác nhận *cách* gọi nên dễ gãy khi refactor.
 
 **Ví dụ w-identity:** `GetMeHandler` dùng fake object cho cả hai port, không khởi tạo repository thật hoặc Nest container. Test kiểm tra tài khoản bị khóa không chạm storage, lấy hồ sơ đúng ID và trả dữ liệu của port. Architecture test đọc AST TypeScript để chặn import/export sai lớp, gồm `import type`, re-export, dynamic import và `require`; kiểm tra cả unit test của core. Integration test riêng kiểm tra unique index và upsert đồng thời.
 
@@ -229,6 +285,15 @@ Kiểm thử nghiệp vụ bằng fake ports; adapter bằng integration test; T
 
 Các cách tiếp cận đều nhấn mạnh tách nghiệp vụ và chi tiết nhưng mô tả ranh giới khác nhau. Layered truyền thống có thể để service phụ thuộc implementation database; Clean dùng đảo phụ thuộc ở ranh giới đó.
 
+| Kiến trúc | Ý tưởng chính | Cách nhìn ranh giới | Khác biệt đáng nhớ |
+|---|---|---|---|
+| Layered (N-tier) | Presentation → Business → Data, mỗi tầng chỉ gọi tầng dưới | Theo chiều dọc, phụ thuộc đi xuống | Business thường phụ thuộc trực tiếp tầng Data nên khó tách database |
+| Hexagonal (Ports & Adapters, Alistair Cockburn) | Ứng dụng ở trung tâm, giao tiếp ra ngoài qua port; adapter cắm vào port | Trong/ngoài, phân biệt port "driving" (vào) và "driven" (ra) | Tập trung vào ranh giới với bên ngoài; không quy định cấu trúc bên trong lõi |
+| Onion (Jeffrey Palermo) | Các vòng đồng tâm, Domain Model ở tâm, phụ thuộc hướng vào tâm | Vòng đồng tâm | Gần Clean; nhấn mạnh Domain Model và Domain Services ở tâm |
+| Clean (Robert C. Martin) | Tổng hợp các ý trên, thêm Dependency Rule và tên vòng Entities/Use Cases/Adapters/Frameworks | Vòng đồng tâm + cách vượt ranh giới (input/output boundary) | Quy định rõ use case là đơn vị chính của tầng ứng dụng |
+
+Ba kiến trúc sau cùng một ý cốt lõi: lõi nghiệp vụ không phụ thuộc chi tiết. Khác biệt chủ yếu ở tên gọi và mức quy định, nên khi phỏng vấn hãy nói điểm chung (đảo phụ thuộc) trước rồi mới nêu khác biệt.
+
 **Ví dụ w-identity:** Cùng dịch vụ có thể giải thích theo ports/adapters hoặc các vòng domain/application. REST hay TCP không quyết định kiến trúc.
 
 **Bẫy phỏng vấn:** Đồng nhất Clean Architecture với microservices, DDD hoặc bắt buộc CQRS. Monolith cũng áp dụng được.
@@ -239,7 +304,9 @@ Các cách tiếp cận đều nhấn mạnh tách nghiệp vụ và chi tiết 
 
 Ranh giới thêm interface, mapping và chi phí điều hướng. Hữu ích khi nghiệp vụ phức tạp, nhiều tích hợp hoặc sống lâu; CRUD nhỏ có thể dùng cấu trúc nhẹ hơn.
 
-**Ví dụ w-identity:** w-identity có Keycloak và MongoDB nên tách adapter có giá trị; giữ mọi lớp trong app thay vì tạo nhiều Nx libraries ngay.
+Chi phí cụ thể: nhiều file hơn cho cùng một tính năng, mapping giữa các mô hình, phải đọc qua port để tới implementation, và dễ over-engineering khi nghiệp vụ gần như CRUD. Lợi ích: test nghiệp vụ nhanh bằng fake, thay adapter có phạm vi ảnh hưởng nhỏ, và nhiều người làm song song ít xung đột.
+
+**Ví dụ w-identity:** w-identity có Keycloak và MongoDB nên tách adapter có giá trị; giữ mọi lớp trong app thay vì tạo nhiều Nx libraries ngay. Đánh đổi của lựa chọn này: ranh giới chỉ được giữ bằng kỷ luật và `architecture.spec.ts`, không phải bằng công cụ của workspace. Nếu tách thành lib riêng, Nx có thể ép ranh giới bằng tag và rule `@nx/enforce-module-boundaries`; workspace hiện dùng oxlint nên rule này chưa được cấu hình (xem bài 15).
 
 **Bẫy phỏng vấn:** Hứa đổi database không tốn công: vẫn phải xử lý query, schema, migration và đặc tính consistency.
 
@@ -296,6 +363,94 @@ Bài tập: thiết kế UpdateMyProfile với input, Actor, hai ports, lỗi v�
 
 **Tự trả lời:** viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.
 
+## 14. So sánh Clean Architecture, DDD và CQRS
+
+Kiến thức riêng về DDD (Strategic/Tactical Design, bounded context, aggregate, ví dụ nhà hàng) nằm ở sổ tay **Domain-Driven Design** (`#ddd`). Bài này chỉ giữ phần so sánh ba khái niệm hay bị nhầm lẫn.
+
+| Khái niệm | Câu hỏi nó giúp giải quyết | Đầu ra điển hình |
+|---|---|---|
+| Clean Architecture | Code và dependency được tổ chức thế nào để bảo vệ phần nghiệp vụ khỏi chi tiết bên ngoài? | Các lớp, port/adapter, hướng phụ thuộc |
+| CQRS | Trách nhiệm thay đổi trạng thái và đọc dữ liệu được tách thế nào? | Command/query riêng, handler riêng |
+
+Chúng có thể kết hợp, nhưng lựa chọn một cách tiếp cận không tự động đồng nghĩa đã thực hiện hai cách còn lại.
+
+### Chúng gặp nhau ở đâu
+
+| Khái niệm DDD | Nằm ở đâu trong Clean Architecture |
+|---|---|
+| Entity, Value Object, Aggregate, Domain Service, Domain Event | Vòng Entities / Domain |
+| Application Service | Vòng Use Cases / Application (handler điều phối) |
+| Repository (giao diện) | Port do Application/Domain sở hữu |
+| Repository (cài đặt), ORM, broker | Interface Adapters / Frameworks & Drivers |
+
+Nói gọn: DDD cho biết **mô hình bên trong** nên là gì; Clean Architecture cho biết **mô hình đó được đặt ở đâu** và cái gì được phép phụ thuộc vào nó. CQRS quyết định đường đọc và đường ghi có dùng chung mô hình hay không; nó cũng không bắt buộc đi kèm hai cái còn lại.
+
+### Nhầm lẫn thường gặp
+
+- Có `domain/`, repository và CQRS nghĩa là đã làm DDD tốt. **Sai:** đó là cấu trúc code, chưa nói gì về ngôn ngữ, ranh giới và quy tắc nghiệp vụ.
+- Clean Architecture bắt buộc DDD. **Sai:** có thể dùng Clean với mô hình domain đơn giản (hàm policy, kiểu dữ liệu).
+- DDD bắt buộc microservices hay CQRS. **Sai:** bounded context có thể nằm trong một monolith; CQRS là quyết định riêng.
+- Aggregate là một bảng database. **Sai:** nó là ranh giới nhất quán, cách lưu chọn sau.
+
+### Ở w-identity
+
+w-identity áp dụng **Clean Architecture** đầy đủ hơn nhiều so với DDD: có các lớp, port/adapter, composition root và một CQRS đồng bộ. Về DDD chỉ có tư tưởng nhẹ (tách Domain, đặt tên theo nghiệp vụ, `UserAccount` khác `User`); không có aggregate, value object, domain event hay context map, vì identity là subdomain generic. Không nên gán nhãn DDD cho code này.
+
+### Câu trả lời mẫu 60 giây
+
+“DDD trả lời *mô hình nghiệp vụ là gì và ranh giới ở đâu*; Clean Architecture trả lời *dependency được sắp xếp thế nào để bảo vệ mô hình đó*; CQRS trả lời *đọc và ghi có tách nhau không*. Ba thứ độc lập nhưng kết hợp tốt: entity và aggregate của DDD nằm ở vòng trong của Clean, repository là port do lớp trong sở hữu. Ở w-identity em dùng Clean đầy đủ và CQRS đồng bộ, còn DDD chỉ ở mức nhẹ vì đây là subdomain identity.”
+
+**Tự kiểm tra:** Một service có folder domain, repository và command/query thì thiếu gì để gọi là DDD? Bounded context nằm ở lớp nào của Clean Architecture? Vì sao một aggregate không đồng nghĩa với một collection?
+
+## 15. SOLID, Boundary và cấu trúc dự án
+
+Clean Architecture dựa trên SOLID ở mức module và component; phần này nối các nguyên tắc đó với cách vượt ranh giới và cấu trúc thư mục.
+
+### SOLID trong Clean Architecture
+
+| Nguyên tắc | Ý chính | Gặp ở w-identity |
+|---|---|---|
+| **S**RP | Một module chỉ có một lý do để thay đổi (một nhóm người yêu cầu thay đổi) | Mỗi handler một use case; `profile.policy.ts` chỉ chứa quy tắc profile |
+| **O**CP | Mở để mở rộng, đóng với sửa đổi | Thêm adapter mới cho port có sẵn mà không sửa use case |
+| **L**SP | Implementation thay được abstraction mà không đổi hành vi đúng | Fake và `UserRepository` đều tuân theo hợp đồng `UserRepositoryPort` (trả `null` khi không có, ném lỗi chuẩn hóa khi hạ tầng lỗi) |
+| **I**SP | Client không bị ép phụ thuộc method nó không dùng | `UserRepositoryPort` chỉ có `findByUserId` và `update`, dù repository nền có nhiều CRUD |
+| **D**IP | Phụ thuộc abstraction thuộc về phía cấp cao | Bài 5 |
+
+### Input/Output Boundary và Presenter
+
+Trong mô tả gốc của Uncle Bob, controller gọi **input boundary** (interface của use case), use case trả kết quả qua **output boundary** (interface), và **presenter** ở vòng ngoài định dạng kết quả cho view. Mục đích: use case không biết cách hiển thị và dependency vẫn hướng vào trong khi dữ liệu đi ra.
+
+Trong w-identity, handler trả giá trị trực tiếp (`return this.profiles.update(...)`) và controller/filter ở Presentation định dạng response. Đây là biến thể đơn giản và phổ biến cho API request-response: vẫn đúng Dependency Rule vì handler không import Presentation. Output boundary đáng thêm khi use case cần đẩy kết quả theo nhiều bước hoặc nhiều định dạng đầu ra.
+
+### Humble Object
+
+Tách phần khó kiểm thử (UI, framework, I/O) thành lớp mỏng không có logic, đặt logic vào phần dễ test. Ở w-identity: NestJS adapter trong `presentation/cqrs/` chỉ kế thừa handler Application để có DI và đăng ký bus, còn logic nằm ở handler thuần đã có test bằng fake.
+
+### Screaming Architecture và cấu trúc thư mục
+
+Cấu trúc thư mục nên cho thấy hệ thống làm gì (use case, nghiệp vụ), không chỉ framework nào đang dùng. Hai cách tổ chức:
+
+- **Package by layer:** `domain/`, `application/`, `presentation/`, `infrastructure/` (w-identity đang dùng). Dễ thấy ranh giới kỹ thuật, nhưng một tính năng rải ra nhiều thư mục.
+- **Package by feature:** `profile/`, `account/`, mỗi thư mục có lớp riêng bên trong. Một tính năng gom lại một chỗ; phù hợp khi service có nhiều tính năng độc lập.
+
+Có thể kết hợp: chia theo feature ở cấp ngoài, theo layer ở bên trong.
+
+### Nguyên tắc component
+
+Dùng khi chia code thành package/lib riêng (ví dụ Nx libraries): REP/CCP/CRP quyết định *gộp gì với gì* (cái cùng thay đổi, cùng phát hành, cùng dùng thì ở cùng package); ADP không để vòng phụ thuộc; SDP cho phép phụ thuộc về phía ổn định hơn; SAP nói component càng ổn định càng nên trừu tượng. Đây là kiến thức mở rộng, ít khi hỏi sâu ở phỏng vấn trừ vị trí kiến trúc.
+
+### Ép ranh giới bằng công cụ
+
+| Cách | Bắt được gì | Trạng thái ở workspace này |
+|---|---|---|
+| Test import bằng AST (`architecture.spec.ts`) | Core import ngược ra Infrastructure/framework | Đã có trong w-identity |
+| `@nx/enforce-module-boundaries` + tag project | Import giữa các lib/app vi phạm quy tắc tag | Chưa cấu hình; workspace dùng oxlint, rule này thuộc ESLint plugin của Nx |
+| Tách lib riêng (domain, application) | Không thể import chéo vì không khai báo phụ thuộc | Chưa tách; tài liệu chọn giữ trong một app |
+
+**Bẫy phỏng vấn:** Thuộc tên SOLID nhưng không nêu ví dụ code; cho rằng Clean Architecture bắt buộc có presenter và output port ở mọi API; nghĩ rằng chia thư mục đúng là đã đúng ranh giới mà không có công cụ kiểm tra.
+
+**Tự trả lời:** viết lại bằng lời của bạn, nêu một đánh đổi và một tình huống kiểm thử.
+
 ## Từ điển nhanh
 
 | Thuật ngữ | Giải thích |
@@ -312,6 +467,8 @@ Bài tập: thiết kế UpdateMyProfile với input, Actor, hai ports, lỗi v�
 | Mapper | Chuyển đổi giữa các mô hình dữ liệu |
 | Fake | Implementation đơn giản dùng kiểm thử hành vi |
 | Partial failure | Một phần chuỗi thao tác thành công, phần khác thất bại |
+| Humble Object | Lớp mỏng, không logic, bao phần khó test để logic nằm ở phần dễ test |
+| Input/Output Boundary | Interface mà use case nhận lệnh vào và trả kết quả ra, giữ dependency hướng vào trong |
 
 ## Nguồn và cách dùng
 
