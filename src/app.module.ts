@@ -16,6 +16,7 @@ import {
   KeycloakHttpClient,
 } from '@lib-infrastructure/keycloak';
 import {
+  DEFAULT_USER_PASSWORD,
   IDENTITY_PROVIDER,
   PERMISSION_REPOSITORY,
   ROLE_REPOSITORY,
@@ -77,6 +78,14 @@ const rabbitMQ = RabbitMQModule.forRoot();
     AuthzController,
   ],
   providers: [
+    {
+      provide: DEFAULT_USER_PASSWORD,
+      inject: [ConfigService],
+      // Dev default. Keycloak makes it temporary, but anyone who knows it can
+      // log in before the user does: override it outside development.
+      useFactory: (config: ConfigService) =>
+        config.get<string>('DEFAULT_USER_PASSWORD') || '123',
+    },
     {
       provide: USER_REPOSITORY,
       useExisting: UserRepository,

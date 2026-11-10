@@ -38,6 +38,8 @@ beforeEach(() => {
     setEnabled: jest.fn(),
     logout: jest.fn(),
     sendPasswordReset: jest.fn(),
+    findByUsername: jest.fn(),
+    setTemporaryPassword: jest.fn(),
   };
   profiles = {
     findByUserId: jest
@@ -190,24 +192,28 @@ describe('commands', () => {
       ).execute(new Commands.UpdateMyProfileCommand({ locale: 'vi' }, actor)),
     ).rejects.toBe(error);
   });
-  it('preserves the temporary account-management restriction', async () => {
+  const stranger = { userId: 'alice', issuer: 'untrusted-issuer' };
+  it('rejects account management from an unauthenticated actor', async () => {
     const operations = [
       () =>
-        new CommandHandlers.CreateUserHandler(identity, auth).execute(
+        new CommandHandlers.CreateUserHandler(identity, auth, '123').execute(
           new Commands.CreateUserCommand(
             { username: 'x', email: 'x@test.dev' },
-            actor,
+            stranger,
           ),
         ),
       () =>
         new CommandHandlers.UpdateUserHandler(identity, auth).execute(
-          new Commands.UpdateUserCommand({ userId: 'alice', patch: {} }, actor),
+          new Commands.UpdateUserCommand(
+            { userId: 'alice', patch: {} },
+            stranger,
+          ),
         ),
       () =>
         new CommandHandlers.SetUserStatusHandler(identity, auth).execute(
           new Commands.SetUserStatusCommand(
             { userId: 'alice', enabled: false },
-            actor,
+            stranger,
           ),
         ),
       () =>
@@ -217,20 +223,22 @@ describe('commands', () => {
         ).execute(
           new Commands.SendPasswordResetEmailCommand(
             { userId: 'alice' },
-            actor,
+            stranger,
           ),
         ),
       () =>
         new QueryHandlers.GetUserHandler(identity, profiles, auth).execute(
-          new Queries.GetUserQuery({ userId: 'alice' }, actor),
+          new Queries.GetUserQuery({ userId: 'alice' }, stranger),
         ),
       () =>
         new QueryHandlers.ListUsersHandler(identity, auth).execute(
-          new Queries.ListUsersQuery({ offset: 0, limit: 10 }, actor),
+          new Queries.ListUsersQuery({ offset: 0, limit: 10 }, stranger),
         ),
     ];
     for (const operation of operations)
-      await expect(operation()).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      await expect(operation()).rejects.toMatchObject({
+        code: 'UNAUTHENTICATED',
+      });
     expect(identity.create).not.toHaveBeenCalled();
     expect(identity.get).not.toHaveBeenCalled();
     expect(identity.setEnabled).not.toHaveBeenCalled();
@@ -251,5 +259,58 @@ describe('commands', () => {
       details: { userId: 'alice' },
     });
     expect(identity.setEnabled).toHaveBeenCalledWith('alice', false);
+  });
+});
+
+describe('CreateUser default password', () => {
+  const input = { username: 'bob', email: 'bob@test.dev' };
+  const created = {
+    userId: 'kc-bob',
+    username: 'bob',
+    enabled: true,
+    emailVerified: false,
+  };
+  beforeEach(() => {
+    jest.spyOn(auth, 'management').mockImplementation(() => undefined);
+    identity.create.mockResolvedValue(created);
+  });
+  it('sets the default password after creating the account', async () => {
+    const result = await new CommandHandlers.CreateUserHandler(
+      identity,
+      auth,
+      '123',
+    ).execute(new Commands.CreateUserCommand(input, actor));
+    expect(result).toBe(created);
+    expect(identity.setTemporaryPassword).toHaveBeenCalledWith('kc-bob', '123');
+    expect(identity.create.mock.invocationCallOrder[0]).toBeLessThan(
+      identity.setTemporaryPassword.mock.invocationCallOrder[0],
+    );
+  });
+  it('reports which account is left without a password, without leaking it', async () => {
+    identity.setTemporaryPassword.mockRejectedValue(new Error('123 rejected'));
+    const error = await new CommandHandlers.CreateUserHandler(
+      identity,
+      auth,
+      '123',
+    )
+      .execute(new Commands.CreateUserCommand(input, actor))
+      .catch((e: ApplicationError) => e);
+    expect(error).toMatchObject({
+      code: 'ACCOUNT_CREATED_PASSWORD_FAILED',
+      details: { userId: 'kc-bob' },
+    });
+    expect(JSON.stringify(error)).not.toContain('123');
+    expect((error as Error).message).not.toContain('123');
+  });
+  it('does not set a password when the account was not created', async () => {
+    identity.create.mockRejectedValue(
+      new ApplicationError('ACCOUNT_CONFLICT', 'exists'),
+    );
+    await expect(
+      new CommandHandlers.CreateUserHandler(identity, auth, '123').execute(
+        new Commands.CreateUserCommand(input, actor),
+      ),
+    ).rejects.toMatchObject({ code: 'ACCOUNT_CONFLICT' });
+    expect(identity.setTemporaryPassword).not.toHaveBeenCalled();
   });
 });

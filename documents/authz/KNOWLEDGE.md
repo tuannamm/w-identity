@@ -220,8 +220,8 @@ SPA là *public client*, không giữ được secret. PKCE thay secret bằng m
 
 | Quyết định | Lý do | Đánh đổi |
 |---|---|---|
-| Token chỉ trong bộ nhớ, không `localStorage` | XSS không đọc được từ kho lưu trữ | F5 làm mất token; phải hỏi lại Keycloak (phiên SSO) |
-| Cờ gợi ý `pm.session-hint` trong `localStorage` (không phải token) | Chỉ khi có cờ mới kiểm tra SSO lúc tải trang, khách mới không bị chuyển hướng vô ích | Cờ có thể sai (phiên đã hết hạn): kiểm tra SSO trả về chưa đăng nhập, cờ bị xóa |
+| Token chỉ trong bộ nhớ, không `localStorage` | XSS không đọc được từ kho lưu trữ | F5 làm mất token; phải hỏi lại Keycloak (phiên SSO còn thì không nhập lại mật khẩu) |
+| Bắt buộc đăng nhập (`onLoad: 'login-required'`): chưa có phiên thì chuyển thẳng sang trang đăng nhập, không cần bấm nút | Ứng dụng nội bộ không có trang công khai; trải nghiệm gọn hơn | Mở app luôn qua một lượt chuyển hướng tới Keycloak (nhanh và không nhập lại mật khẩu khi phiên SSO còn) |
 | `redirect_uri` khai báo chính xác `/callback`, không ký tự đại diện | Chặn gửi mã tới địa chỉ lạ | Mỗi môi trường phải đăng ký URL |
 | Trang quay lại sau đăng nhập chỉ nhận đường dẫn nội bộ | Chặn open redirect | Phải kiểm tra giá trị đã lưu như dữ liệu không tin cậy |
 | Làm mới token trước khi gọi API; 401 thì làm mới và thử lại **đúng một lần** | Người dùng không thấy gián đoạn; không lặp vô hạn | Phức tạp hơn gọi thẳng |
@@ -238,7 +238,7 @@ Hai việc phải cùng làm: **xóa token ở UI** và **hủy phiên SSO ở K
 
 | Phản hồi | Hành vi |
 |---|---|
-| 401 | Làm mới token, thử lại một lần; vẫn 401 thì báo "Phiên đã hết hạn" |
+| 401 | Làm mới token, thử lại một lần; vẫn 401 thì chuyển lại sang trang đăng nhập (nhớ trang đang xem) |
 | 403 | Không đăng xuất; tải lại `/me/permissions`, báo không có quyền |
 | 503 `AUTHZ_UNAVAILABLE` | Lỗi tạm thời, cho thử lại; **không** coi là bị từ chối quyền |
 | Mất kết nối | Lỗi tạm thời có thể thử lại |

@@ -75,6 +75,18 @@ export class KeycloakIdentityAdapter implements IdentityProviderPort {
     const user = await this.json<Representation>(this.userPath(id));
     return this.map(user);
   }
+  async findByUsername(username: string) {
+    const query = new URLSearchParams({
+      username,
+      exact: 'true',
+      briefRepresentation: 'false',
+    });
+    const users = await this.json<Representation[]>(`/users?${query}`);
+    const match = users.find(
+      (user) => user.username.toLowerCase() === username.toLowerCase(),
+    );
+    return match ? this.map(match) : null;
+  }
   async list(input: UserSearch) {
     const query = new URLSearchParams({
       first: String(input.offset),
@@ -101,6 +113,13 @@ export class KeycloakIdentityAdapter implements IdentityProviderPort {
   }
   async logout(id: string) {
     await this.command(`${this.userPath(id)}/logout`, 'POST');
+  }
+  async setTemporaryPassword(id: string, password: string) {
+    await this.command(`${this.userPath(id)}/reset-password`, 'PUT', {
+      type: 'password',
+      value: password,
+      temporary: true,
+    });
   }
   async sendPasswordReset(id: string) {
     await this.command(`${this.userPath(id)}/execute-actions-email`, 'PUT', [

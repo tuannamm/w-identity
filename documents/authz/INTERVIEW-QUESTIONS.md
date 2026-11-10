@@ -68,13 +68,13 @@ Che đáp án, nói thành tiếng 60–90 giây: định nghĩa → đánh đ�
 - [ ] 🟡 PKCE giải quyết vấn đề gì? Hoạt động thế nào? · 📚 #9
   *Ý chính:* SPA là public client, không giữ được secret. SPA gửi `code_challenge = SHA256(code_verifier)` khi bắt đầu và gửi `code_verifier` khi đổi mã. Kẻ chặn được mã không có verifier nên không đổi được token.
 - [ ] 🟡 Vì sao không lưu token trong `localStorage`? F5 xử lý ra sao? · 📚 #9
-  *Ý chính:* Token trong bộ nhớ thì XSS không đọc được từ kho lưu trữ. F5 mất token nên UI hỏi lại Keycloak qua phiên SSO để lấy token mới mà không nhập lại mật khẩu. Một cờ gợi ý (không phải token) giúp tránh chuyển hướng vô ích cho khách mới.
+  *Ý chính:* Token trong bộ nhớ thì XSS không đọc được từ kho lưu trữ. F5 mất token nên UI hỏi lại Keycloak qua phiên SSO để lấy token mới mà không nhập lại mật khẩu.  Vì ứng dụng bắt buộc đăng nhập, chưa có phiên thì chuyển thẳng sang trang đăng nhập mà không cần bấm nút.
 - [ ] 🟡 `redirect_uri` và `post_logout_redirect_uri` cấu hình thế nào, vì sao? · 📚 #9
   *Ý chính:* Khai báo chính xác (không ký tự đại diện) trong client `pm-web`; địa chỉ lạ bị Keycloak từ chối (400), chặn việc gửi mã hoặc chuyển hướng tới nơi lạ.
 - [ ] 🔴 Đăng xuất trên UI làm những việc gì? Access token cũ còn dùng được không? · 📚 #9
   *Ý chính:* Xóa token ở UI và chuyển hướng tới Keycloak `/logout` (kèm `id_token_hint`) để hủy phiên SSO. Access token đã cấp không bị thu hồi, vẫn hợp lệ đến khi hết hạn (5 phút); refresh token bị vô hiệu cùng phiên.
 - [ ] 🟡 UI xử lý 401, 403 và 503 khác nhau thế nào? · 📚 #9
-  *Ý chính:* 401: làm mới token và thử lại đúng một lần, vẫn lỗi thì báo hết phiên. 403: không đăng xuất, tải lại quyền. 503 `AUTHZ_UNAVAILABLE`: lỗi tạm thời, cho thử lại, không coi là bị từ chối.
+  *Ý chính:* 401: làm mới token và thử lại đúng một lần, vẫn lỗi thì chuyển lại sang trang đăng nhập. 403: không đăng xuất, tải lại quyền. 503 `AUTHZ_UNAVAILABLE`: lỗi tạm thời, cho thử lại, không coi là bị từ chối.
 - [ ] 🔴 Vì sao gateway phải trả lời preflight trước bước xác thực? Vì sao không dùng CORS `*`? · 📚 #9
   *Ý chính:* Preflight do trình duyệt gửi tự động và không mang token, nên xác thực trước sẽ luôn thất bại. Có header `Authorization` nên chỉ cho phép origin cấu hình chính xác; origin lạ nhận 403 và không có header CORS.
 - [ ] 🔴 "Quay lại trang đang xem sau khi đăng nhập" có rủi ro bảo mật nào? · 📚 #9

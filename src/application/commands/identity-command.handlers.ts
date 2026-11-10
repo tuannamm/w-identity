@@ -18,11 +18,27 @@ export class CreateUserHandler {
   constructor(
     private readonly identity: IdentityProviderPort,
     private readonly auth: AuthorizationPolicy,
+    /** Temporary: Keycloak forces the user to change it at first login. */
+    private readonly defaultPassword: string,
   ) {}
   async execute(request: CreateUserCommand) {
     const { input, actor } = request;
     this.auth.management(actor);
-    return this.identity.create(input);
+    const account = await this.identity.create(input);
+    try {
+      await this.identity.setTemporaryPassword(
+        account.userId,
+        this.defaultPassword,
+      );
+    } catch {
+      // The account exists but cannot log in yet; tell the caller which one.
+      throw new ApplicationError(
+        'ACCOUNT_CREATED_PASSWORD_FAILED',
+        'Account created; default password could not be set',
+        { userId: account.userId },
+      );
+    }
+    return account;
   }
 }
 export class UpdateUserHandler {

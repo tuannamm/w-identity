@@ -51,6 +51,30 @@
 - [x] Cập nhật `documents/KNOWLEDGE.md` (mục 16)
 - [ ] Bạn review → bạn bảo mới commit
 
+## Seed admin (bổ sung)
+
+Cách làm: **script chạy tay** `npm run seed:admin` (đổi từ seed tự động lúc khởi động). Mật khẩu tạm lấy từ biến môi trường.
+
+- [x] `IdentityProviderPort` thêm `findByUsername` và `setTemporaryPassword` (adapter Keycloak: `GET /users?exact=true`, `PUT /users/{id}/reset-password` với `temporary: true`)
+- [x] `bootstrap/admin.seeder.ts`: `readAdminSeedSettings` + `AdminSeeder`
+- [x] `src/seed-admin.ts`: script dùng `SeedAdminModule` tối giản (chỉ ConfigModule, MongoDB, Keycloak; không TCP/RabbitMQ/discovery/health)
+- [x] `package.json`: `"seed:admin": "nest build && node dist/seed-admin"`
+- [x] `RbacSeeder` vẫn chạy lúc service khởi động (service cần role/permission); service **không** tự tạo admin nữa
+- [x] `.env.example`: `SEED_ADMIN_USERNAME`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`
+- [x] Test: settings, seeder, adapter
+- [ ] Bạn điền 3 biến vào `.env` và chạy `npm run seed:admin` với Keycloak/MongoDB thật
+
+Cách chạy: điền `SEED_ADMIN_*` trong `apps/w-identity/.env`, rồi `cd apps/w-identity && npm run seed:admin`. Thoát mã 1 và in lý do nếu lỗi.
+
+| Tình huống | Kết quả |
+|---|---|
+| Thiếu `SEED_ADMIN_USERNAME`, email hoặc password; password ngoài 3-128 ký tự | Script dừng, mã thoát 1, chưa ghi gì |
+| User chưa có trong Keycloak | Seed role/permission, tạo user, đặt mật khẩu tạm (buộc đổi lần đăng nhập đầu), gán role `admin` |
+| User đã có | Không đụng mật khẩu; chỉ gán `admin` nếu user chưa có role nào (hạ quyền có chủ ý không bị hoàn tác) |
+| Keycloak hoặc MongoDB lỗi | Script báo lỗi (không chứa mật khẩu), mã thoát 1; chạy lại an toàn |
+
+Giới hạn đã biết: nếu tạo user xong mà đặt mật khẩu lỗi, lần chạy sau thấy user đã tồn tại nên không đặt lại mật khẩu; khi đó dùng email đặt lại mật khẩu (`sendPasswordReset`) hoặc Keycloak Admin Console.
+
 ## Message pattern / operationId (để khai báo ở gateway)
 
 | Pattern | Input | Ghi chú |

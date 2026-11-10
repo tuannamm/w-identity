@@ -93,8 +93,8 @@ test('profile policy over TCP and MongoDB', async () => {
     );
   try {
     await app.listen();
-    const actor = { userId: 'alice', issuer };
-    // Every registered adapter must be dispatchable and preserve management authorization.
+    const actor = { userId: 'alice', issuer: 'untrusted-issuer' };
+    // Every registered adapter must be dispatchable and reject unauthenticated management.
     const blockedCommands = [
       new Commands.CreateUserCommand(
         { username: 'x', email: 'x@example.test' },
@@ -110,7 +110,7 @@ test('profile policy over TCP and MongoDB', async () => {
     for (const command of blockedCommands) {
       await assert.rejects(
         app.get(CommandBus).execute(command),
-        (error) => error.code === 'FORBIDDEN',
+        (error) => error.code === 'UNAUTHENTICATED',
       );
     }
     for (const query of [
@@ -119,7 +119,7 @@ test('profile policy over TCP and MongoDB', async () => {
     ]) {
       await assert.rejects(
         app.get(QueryBus).execute(query),
-        (error) => error.code === 'FORBIDDEN',
+        (error) => error.code === 'UNAUTHENTICATED',
       );
     }
 

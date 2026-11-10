@@ -23,9 +23,9 @@ describe('AuthorizationPolicy', () => {
     );
   });
 
-  it('denies management even for an authenticated actor', () => {
+  it('allows management for an authenticated actor (permissions are enforced by the gateway)', () => {
     expect(() =>
       policy.management({ userId: 'admin', issuer: 'trusted-issuer' }),
-    ).toThrow(expect.objectContaining({ code: 'FORBIDDEN' }));
+    ).not.toThrow();
   });
 });

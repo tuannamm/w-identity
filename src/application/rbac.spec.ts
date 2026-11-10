@@ -51,6 +51,8 @@ beforeEach(() => {
     setEnabled: jest.fn(),
     logout: jest.fn(),
     sendPasswordReset: jest.fn(),
+    findByUsername: jest.fn(),
+    setTemporaryPassword: jest.fn(),
   } as unknown as jest.Mocked<IdentityProviderPort>;
   permissions = {
     insert: jest.fn(async (input) => ({ ...permission, ...input })),
@@ -79,43 +81,44 @@ const allowManagement = () =>
   jest.spyOn(auth, 'management').mockImplementation(() => undefined);
 
 describe('management gate', () => {
-  it('keeps every RBAC operation FORBIDDEN while management is disabled', async () => {
+  const stranger = { userId: 'u', issuer: 'untrusted-issuer' };
+  it('rejects every RBAC operation from an unauthenticated actor', async () => {
     const operations = [
       () =>
         new PCH.CreatePermissionHandler(permissions, auth).execute(
-          new PC.CreatePermissionCommand({ key: 'a:b' }, actor),
+          new PC.CreatePermissionCommand({ key: 'a:b' }, stranger),
         ),
       () =>
         new PCH.DeletePermissionHandler(permissions, roles, auth).execute(
-          new PC.DeletePermissionCommand({ key: 'a:b' }, actor),
+          new PC.DeletePermissionCommand({ key: 'a:b' }, stranger),
         ),
       () =>
         new RCH.CreateRoleHandler(roles, permissions, auth).execute(
-          new RC.CreateRoleCommand({ name: 'editor' }, actor),
+          new RC.CreateRoleCommand({ name: 'editor' }, stranger),
         ),
       () =>
         new RCH.UpdateRoleHandler(roles, auth).execute(
           new RC.UpdateRoleCommand(
             { name: 'editor', patch: { description: 'x' } },
-            actor,
+            stranger,
           ),
         ),
       () =>
         new RCH.DeleteRoleHandler(roles, userRoles, auth).execute(
-          new RC.DeleteRoleCommand({ name: 'editor' }, actor),
+          new RC.DeleteRoleCommand({ name: 'editor' }, stranger),
         ),
       () =>
         new RCH.GrantPermissionToRoleHandler(roles, permissions, auth).execute(
           new RC.GrantPermissionToRoleCommand(
             { name: 'editor', permissionKey: 'a:b' },
-            actor,
+            stranger,
           ),
         ),
       () =>
         new RCH.RevokePermissionFromRoleHandler(roles, auth).execute(
           new RC.RevokePermissionFromRoleCommand(
             { name: 'editor', permissionKey: 'a:b' },
-            actor,
+            stranger,
           ),
         ),
       () =>
@@ -127,28 +130,28 @@ describe('management gate', () => {
         ).execute(
           new RC.AssignRoleToUserCommand(
             { userId: 'u', roleName: 'editor' },
-            actor,
+            stranger,
           ),
         ),
       () =>
         new PQH.ListPermissionsHandler(permissions, auth).execute(
-          new PQ.ListPermissionsQuery(actor),
+          new PQ.ListPermissionsQuery(stranger),
         ),
       () =>
         new PQH.GetPermissionHandler(permissions, auth).execute(
-          new PQ.GetPermissionQuery({ key: 'a:b' }, actor),
+          new PQ.GetPermissionQuery({ key: 'a:b' }, stranger),
         ),
       () =>
         new RQH.ListRolesHandler(roles, auth).execute(
-          new RQ.ListRolesQuery(actor),
+          new RQ.ListRolesQuery(stranger),
         ),
       () =>
         new RQH.GetRoleHandler(roles, auth).execute(
-          new RQ.GetRoleQuery({ name: 'editor' }, actor),
+          new RQ.GetRoleQuery({ name: 'editor' }, stranger),
         ),
       () =>
         new RQH.GetUserRoleHandler(identity, roles, userRoles, auth).execute(
-          new RQ.GetUserRoleQuery({ userId: 'u' }, actor),
+          new RQ.GetUserRoleQuery({ userId: 'u' }, stranger),
         ),
       () =>
         new RQH.GetUserPermissionsHandler(
@@ -156,10 +159,12 @@ describe('management gate', () => {
           roles,
           userRoles,
           auth,
-        ).execute(new RQ.GetUserPermissionsQuery({ userId: 'u' }, actor)),
+        ).execute(new RQ.GetUserPermissionsQuery({ userId: 'u' }, stranger)),
     ];
     for (const operation of operations)
-      await expect(operation()).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      await expect(operation()).rejects.toMatchObject({
+        code: 'UNAUTHENTICATED',
+      });
     expect(permissions.insert).not.toHaveBeenCalled();
     expect(roles.insert).not.toHaveBeenCalled();
     expect(userRoles.set).not.toHaveBeenCalled();

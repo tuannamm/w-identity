@@ -114,4 +114,41 @@ describe('Keycloak identity adapter boundary', () => {
       { email: 'new@example.invalid', emailVerified: false },
     ]);
   });
+  it('finds an exact username match case-insensitively, or null', async () => {
+    const urls: string[] = [];
+    const identity = adapter(async (url) => {
+      urls.push(url);
+      return Response.json([
+        { id: 'k1', username: 'alice-2', enabled: true },
+        { id: 'k2', username: 'alice', enabled: true },
+      ]);
+    });
+    expect(await identity.findByUsername('Alice')).toMatchObject({
+      userId: 'k2',
+    });
+    expect(urls[0]).toContain('/users?username=Alice&exact=true');
+    const empty = adapter(async () => Response.json([]));
+    expect(await empty.findByUsername('nobody')).toBeNull();
+  });
+
+  it('sets a temporary password and keeps it out of errors', async () => {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    const identity = adapter(async (url, init) => {
+      calls.push({ url, init });
+      return new Response(null, { status: 204 });
+    });
+    await identity.setTemporaryPassword('k1', 'secret-pass');
+    expect(calls[0].url).toMatch(/\/users\/k1\/reset-password$/);
+    expect(calls[0].init?.method).toBe('PUT');
+    expect(JSON.parse(String(calls[0].init?.body))).toEqual({
+      type: 'password',
+      value: 'secret-pass',
+      temporary: true,
+    });
+    const failing = adapter(async () => new Response('x', { status: 500 }));
+    const error = await failing
+      .setTemporaryPassword('k1', 'secret-pass')
+      .catch((e: Error) => e);
+    expect((error as Error).stack).not.toMatch(/secret-pass/);
+  });
 });

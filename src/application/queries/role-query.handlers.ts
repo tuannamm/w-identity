@@ -85,7 +85,11 @@ export class GetUserPermissionsHandler {
   ) {}
   async execute({ input, actor }: GetUserPermissionsQuery) {
     this.auth.management(actor);
-    const { userId, role, permissions } = await new AccessResolver(this.identity, this.roles, this.userRoles).resolve(input.userId, true);
+    const { userId, role, permissions } = await new AccessResolver(
+      this.identity,
+      this.roles,
+      this.userRoles,
+    ).resolve(input.userId, true);
     return { userId, roleName: role!.name, permissions };
   }
 }

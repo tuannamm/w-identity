@@ -7,7 +7,11 @@ import * as QueryHandlers from '../../application/queries/identity-query.handler
 import type { IdentityProviderPort } from '../../application/ports/identity-provider.port';
 import type { UserRepositoryPort } from '../../application/ports/user-repository.port';
 import { AuthorizationPolicy } from '../../application/security/authorization.policy';
-import { IDENTITY_PROVIDER, USER_REPOSITORY } from '../../bootstrap/tokens';
+import {
+  DEFAULT_USER_PASSWORD,
+  IDENTITY_PROVIDER,
+  USER_REPOSITORY,
+} from '../../bootstrap/tokens';
 
 // Nest adapters only register and inject the pure Application handlers.
 
@@ -16,8 +20,9 @@ export class NestCreateUserHandler extends CommandHandlers.CreateUserHandler {
   constructor(
     @Inject(IDENTITY_PROVIDER) identity: IdentityProviderPort,
     auth: AuthorizationPolicy,
+    @Inject(DEFAULT_USER_PASSWORD) defaultPassword: string,
   ) {
-    super(identity, auth);
+    super(identity, auth, defaultPassword);
   }
 }
 

@@ -9,11 +9,14 @@ export class AuthorizationPolicy {
         'Authenticated identity is required',
       );
   }
+  /**
+   * Account/RBAC management. The gateway has already enforced the operation's
+   * `x-required-permissions` (users:write, roles:write, ...) before the request
+   * reaches this service, so here we only re-verify the caller is authenticated
+   * by the trusted issuer. Requests that bypass the gateway must be blocked at
+   * the network level (the TCP port is internal).
+   */
   management(actor?: Actor): void {
     this.authenticated(actor);
-    throw new ApplicationError(
-      'FORBIDDEN',
-      'Account management is temporarily unavailable',
-    );
   }
 }
