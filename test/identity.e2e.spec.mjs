@@ -168,6 +168,10 @@ test('gateway, identity service and real dependencies', async () => {
         process.env.IDENTITY_TEST_RABBITMQ_URI ??
         'amqp://guest:guest@localhost:5672',
       RABBITMQ_QUEUE: realm,
+      RABBITMQ_EXCHANGE: `${realm}.events`,
+      RABBITMQ_DLX: `${realm}.dlx`,
+      RABBITMQ_DLQ: `${realm}.dlq`,
+      RABBITMQ_RETRY_COUNT: '0',
       SERVICE_INSTANCE_ID: realm,
       SERVICE_ADVERTISE_HOST: '127.0.0.1',
       REGISTRY_URL: `http://127.0.0.1:${registryPort}`,
@@ -458,6 +462,7 @@ test('gateway, identity service and real dependencies', async () => {
             await channel.deleteQueue(realm);
             await channel.deleteQueue(`${realm}.dlq`);
             await channel.deleteExchange(`${realm}.dlx`);
+            await channel.deleteExchange(`${realm}.events`);
           } finally {
             await channel.close();
           }

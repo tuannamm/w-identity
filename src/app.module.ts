@@ -35,7 +35,14 @@ import { RbacCqrsHandlers } from './presentation/cqrs/rbac.handlers';
 import { PermissionController } from './presentation/tcp/permission.controller';
 import { RoleController } from './presentation/tcp/role.controller';
 import { IdentityController } from './presentation/tcp/identity.controller';
-const rabbitMQ = RabbitMQModule.forRoot();
+const rabbitMQ = RabbitMQModule.forRootAsync({
+  imports: [ConfigModule],
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => ({
+    exchange: config.get<string>('RABBITMQ_EXCHANGE', 'pm.events'),
+    // URI, queue, DLX/DLQ and retry are validated by the shared module after .env loads.
+  }),
+});
 @Module({
   imports: [
     CqrsModule.forRoot(),

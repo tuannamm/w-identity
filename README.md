@@ -28,11 +28,26 @@ Cổng TCP mặc định chỉ bind `127.0.0.1`; khi triển khai container, đ�
 
 ## Kiểm tra
 
-RabbitMQ được cấu hình bằng `RABBITMQ_URI` và `RABBITMQ_QUEUE` theo `.env.example`. File `.env` đã tồn tại cũng cần thêm hai biến này. Startup thất bại nếu broker không sẵn sàng trong 10 giây. Các replica dùng chung queue `w-identity`.
+RabbitMQ dùng module mới với cấu hình sau (bổ sung vào file `.env` đã có):
 
-Service chạy TCP và RMQ trong cùng application context, không mở HTTP listener. Các `@MessagePattern('identity.…')` hiện có nhận cùng payload và trả cùng lỗi trên hai transport. Có thể thêm `@EventPattern` khi có nghiệp vụ nhận event cụ thể; lần tích hợp này không thêm event nghiệp vụ.
+```dotenv
+RABBITMQ_URI=amqp://guest:guest@localhost:5672
+RABBITMQ_QUEUE=w-identity
+RABBITMQ_EXCHANGE=pm.events
+RABBITMQ_DLX=w-identity.dlx
+RABBITMQ_DLQ=w-identity.dlq
+RABBITMQ_RETRY_COUNT=0
+```
+
+URI giữ path virtual host theo chuẩn AMQP. Exchange mặc định `pm.events`; các giá trị khác được module đọc/validate sau khi ConfigModule nạp `.env`. Không khai báo retry thì mặc định 0 (không thử lại); đặt 3 thì event tối đa ba lượt xử lý, bao gồm lần đầu. RPC không áp dụng retry. Giữ DLX/DLQ hiện tại để tránh đổi arguments của queue đã tồn tại. Nếu đổi tên queue, đặt DLX/DLQ tương ứng hoặc bỏ hai biến để module suy ra từ tên queue. Nếu đổi topology queue đang có dữ liệu, cần migration có kiểm soát.
+
+ Startup thất bại nếu broker không sẵn sàng trong 10 giây. Các replica dùng chung queue `w-identity`.
+
+Service chạy TCP và RMQ trong cùng application context, không mở HTTP listener. Các `@MessagePattern('identity.…')` hiện có nhận cùng payload và trả cùng lỗi trên hai transport. Module khai báo topic exchange và tự bind queue theo từng `@EventPattern('type.action')` exact. Chỉ `@MessagePattern` thì queue không có business binding và vẫn phục vụ RPC. Có thể thêm `@EventPattern` khi có nghiệp vụ nhận event cụ thể; lần tích hợp này không thêm event nghiệp vụ.
 
 Readiness kiểm tra cả MongoDB và consumer RabbitMQ; liveness giữ kiểm tra nội tại. Queue lỗi là `w-identity.dlq`. Chỉ cho service tin cậy truy cập RabbitMQ, tương tự TCP; payload actor vẫn theo contract hiện có.
+
+Event sử dụng envelope `RmqEvent<T>` gồm `id`, `type`, `action`, `source`, `occurredAt`, `correlationId`, `causationId?`, `data`; routing key `${type}.${action}`. Thao tác hạ tầng `RabbitMQService.publishEvent` đã sẵn sàng khi cần; danh sách event nghiệp vụ sẽ được xác định riêng. Retry trở về đúng queue worker; hết lượt vào DLQ, không tự replay.
 
 Xem [README của lib](../lib-infrastructure/libs/rabbitmq/README.md) về API gửi event/RPC, ack, timeout và DLQ.
 
