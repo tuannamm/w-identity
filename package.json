@@ -20,7 +20,7 @@
     "test:cov": "NODE_OPTIONS=--experimental-vm-modules jest --coverage --runInBand",
     "test:debug": "NODE_OPTIONS=--experimental-vm-modules node --inspect-brk ../../node_modules/jest/bin/jest.js --runInBand",
     "test:e2e": "NODE_OPTIONS=--experimental-vm-modules jest --config test/jest-integration.config.cjs --selectProjects e2e --runInBand",
-    "docs:knowledge": "node scripts/build-knowledge-html.mjs && node scripts/build-knowledge-html.mjs ddd documents/ddd && node scripts/build-knowledge-html.mjs authz documents/authz && node scripts/build-knowledge-html.mjs oidc documents/oidc && node scripts/build-knowledge-html.mjs outbox documents/outbox",
+    "docs:knowledge": "node scripts/build-knowledge-html.mjs && node scripts/build-knowledge-html.mjs ddd documents/ddd && node scripts/build-knowledge-html.mjs authz documents/authz && node scripts/build-knowledge-html.mjs oidc documents/oidc && node scripts/build-knowledge-html.mjs outbox documents/outbox && node scripts/build-knowledge-html.mjs rabbitmq documents/rabbitmq",
     "test:mongo": "NODE_OPTIONS=--experimental-vm-modules jest --config test/jest-integration.config.cjs --selectProjects mongo --runInBand",
     "test:profile": "NODE_OPTIONS=--experimental-vm-modules jest --config test/jest-integration.config.cjs --selectProjects profile --runInBand"
   },
